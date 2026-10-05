@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f7f6f3;
+  --color-ink: #1a1d1f;
+  --color-thread: #2f8074;
+  --color-thread-light: #3d9a8a;
+  --color-thread-bg: #e8f4f1;
+  --color-text: #2c2e30;
+  --color-text-muted: #6b7075;
+  --color-text-faint: #9ca0a5;
+  --color-line: #e2dfd9;
+  --color-card: #ffffff;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-text font-sans antialiased;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .card { @apply bg-card rounded-xl border border-line; }
+  .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-lg font-medium text-sm transition-all px-3.5 py-2 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply bg-thread text-white hover:bg-thread-light shadow-sm; }
+  .btn-ghost { @apply text-text-muted hover:bg-paper hover:text-text; }
+  .btn-sm { @apply px-2.5 py-1.5 text-xs; }
+  .input { @apply w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-text placeholder:text-text-faint focus:outline-none focus:ring-2 focus:ring-thread/30 focus:border-thread transition-all; }
+  .label { @apply block text-xs font-medium text-text-muted mb-1.5; }
+  .badge { @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium; }
+}
+
+@keyframes fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-in { animation: fade-in 0.15s ease-out; }
+@keyframes slide-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-slide-up { animation: slide-up 0.2s ease-out; }

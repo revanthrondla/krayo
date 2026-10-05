@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Krayo — Requirements Traceability & Implementation Tracking Software for Enterprise Teams</title>
+<meta name="description" content="Krayo is the single system of record for enterprise implementations: requirements, RTM, CRP/SIT/UAT testing, defects, decisions, and RAID logs, all linked in one place. Start a free trial — no credit card required." />
+<meta name="keywords" content="requirements traceability matrix, RTM software, implementation tracking, CRP SIT UAT tracker, defect tracking, RAID log software, enterprise project tracker" />
+<link rel="canonical" href="https://www.krayo.io/" />
+<meta name="robots" content="index, follow" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Krayo — See How Everything Connects" />
+<meta property="og:description" content="One connected system for requirements, testing, defects, decisions, and risk on enterprise implementation projects." />
+<meta property="og:url" content="https://www.krayo.io/" />
+<meta property="og:site_name" content="Krayo" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Krayo — See How Everything Connects" />
+<meta name="twitter:description" content="Requirements, RTM, testing, defects, decisions, and RAID — one connected system for enterprise implementations." />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Krayo",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "description": "Requirements traceability and implementation tracking software for enterprise teams — requirements, RTM, CRP/SIT/UAT testing, defects, decisions, and RAID logs in one connected system.",
+  "offers": [
+    { "@type": "Offer", "name": "Free Trial", "price": "0", "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Team", "priceCurrency": "USD" },
+    { "@type": "Offer", "name": "Enterprise", "priceCurrency": "USD" }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Do I need a credit card to start a free trial?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. You can start a 14-day free trial with just a work email — no credit card required." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Krayo support SSO for enterprise teams?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Krayo supports SAML-based single sign-on on the Enterprise plan, along with audit logging and role-based permissions." }
+    },
+    {
+      "@type": "Question",
+      "name": "Can Krayo replace our requirements traceability matrix spreadsheet?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes. Requirements and test cases are linked directly in the product, so the traceability matrix is generated automatically instead of maintained by hand." }
+    },
+    {
+      "@type": "Question",
+      "name": "How is Krayo priced?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Krayo is priced per seat on the Team plan, with custom annual contracts available on the Enterprise plan." }
+    }
+  ]
+}
+</script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+
+  :root{
+    --ink:#141B26;
+    --ink-soft:#212B3B;
+    --paper:#F6F8FA;
+    --card:#FFFFFF;
+    --line:#E1E6EB;
+    --text:#1B2430;
+    --muted:#5B6472;
+    --faint:#93A0B0;
+    --thread:#2F8074;
+    --thread-dark:#256459;
+    --amber:#C08A2E;
+    --blue:#3B6FA0;
+    --red:#B24C4C;
+    --violet:#7B5EA7;
+    --orange:#B4652A;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--paper); color:var(--text);
+    font-family:'Inter',system-ui,sans-serif; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0; color:var(--ink);}
+  a{color:inherit;}
+  img{max-width:100%;display:block;}
+  .wrap{max-width:1140px; margin:0 auto; padding:0 24px;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:1.2px; text-transform:uppercase;
+    color:var(--thread); font-weight:500; margin-bottom:10px; display:inline-block;
+  }
+  section{padding:88px 0;}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; border-radius:9px; font-weight:600; font-size:14.5px;
+    padding:13px 22px; cursor:pointer; border:none; text-decoration:none; transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn-primary{background:var(--thread); color:#fff; box-shadow:0 6px 18px rgba(47,128,116,.28);}
+  .btn-primary:hover{background:var(--thread-dark);}
+  .btn-ghost{background:transparent; color:var(--ink); border:1.5px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--ink);}
+  .btn-light{background:#fff; color:var(--ink);}
+  .btn-lg{padding:16px 28px; font-size:15.5px;}
+
+  /* NAV */
+  header{
+    position:sticky; top:0; z-index:100; background:#F6F8FAee; backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  nav{display:flex; align-items:center; justify-content:space-between; padding:16px 0;}
+  .logo{display:flex; align-items:center; gap:9px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:18px;}
+  .logo-mark{width:26px; height:26px; flex-shrink:0;}
+  .nav-links{display:flex; gap:30px; font-size:14px; font-weight:500; color:var(--muted);}
+  .nav-links a:hover{color:var(--ink);}
+  .nav-cta{display:flex; align-items:center; gap:14px;}
+  .nav-signin{font-size:14px; font-weight:600; color:var(--muted); text-decoration:none;}
+  .nav-toggle{display:none; background:none; border:none; cursor:pointer;}
+  @media (max-width:860px){
+    .nav-links{display:none;}
+    .nav-toggle{display:block;}
+  }
+
+  /* HERO */
+  .hero{padding:76px 0 60px; overflow:hidden;}
+  .hero-grid{display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center;}
+  @media (max-width:960px){ .hero-grid{grid-template-columns:1fr;} }
+  .hero h1{font-size:46px; line-height:1.12; letter-spacing:-0.5px; margin-bottom:18px;}
+  .hero p.lead{font-size:17.5px; color:var(--muted); max-width:520px; margin-bottom:30px;}
+  .hero-ctas{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px;}
+  .hero-note{font-size:12.5px; color:var(--faint);}
+
+  /* THREAD VISUAL */
+  .thread-card{
+    background:var(--ink); border-radius:18px; padding:34px 28px; color:#fff;
+    box-shadow:0 24px 60px rgba(20,27,38,.28); position:relative;
+  }
+  .thread-title{font-size:11px; letter-spacing:1.4px; text-transform:uppercase; color:#93A0B0; font-family:'IBM Plex Mono',monospace; margin-bottom:22px;}
+  .thread-row{display:flex; align-items:center; gap:14px; margin-bottom:0;}
+  .thread-node{
+    width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; font-size:15px;
+  }
+  .thread-label{font-size:13.5px; font-weight:600;}
+  .thread-sub{font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8B96A6; margin-top:1px;}
+  .thread-line{
+    width:2px; height:26px; background:linear-gradient(180deg, var(--thread), transparent); margin-left:19px;
+  }
+  .thread-status{margin-left:auto; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;}
+
+  /* TRUST STRIP */
+  .trust{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:#EEF1F4;}
+  .trust .wrap{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:18px; padding:22px 24px;}
+  .trust-label{font-size:12.5px; color:var(--muted); font-weight:600;}
+  .trust-badges{display:flex; gap:22px; flex-wrap:wrap;}
+  .trust-badge{display:flex; align-items:center; gap:7px; font-size:13px; font-weight:600; color:var(--ink);}
+
+  /* FEATURES */
+  .section-head{text-align:center; max-width:640px; margin:0 auto 48px;}
+  .section-head h2{font-size:32px; margin-bottom:14px;}
+  .section-head p{color:var(--muted); font-size:15.5px;}
+  .feature-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  @media (max-width:900px){ .feature-grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:640px){ .feature-grid{grid-template-columns:1fr;} }
+  .feature-card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:26px;
+    border-top:3px solid var(--card-color, var(--thread));
+  }
+  .feature-icon{
+    width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background:color-mix(in srgb, var(--card-color, var(--thread)) 14%, white); margin-bottom:16px;
+  }
+  .feature-card h3{font-size:16.5px; margin-bottom:8px;}
+  .feature-card p{font-size:14px; color:var(--muted); margin:0;}
+
+  /* TESTIMONIALS */
+  .testi-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  @media (max-width:900px){ .testi-grid{grid-template-columns:1fr;} }
+  .testi-card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:26px; display:flex; flex-direction:column;}
+  .testi-quote{font-size:15px; color:var(--ink); margin-bottom:20px; flex:1;}
+  .testi-person{display:flex; align-items:center; gap:12px;}
+  .testi-avatar{width:38px; height:38px; border-radius:50%; background:var(--paper); display:flex; align-items:center; justify-content:center; font-weight:700; color:var(--thread); border:1px solid var(--line); flex-shrink:0;}
+  .testi-name{font-size:13.5px; font-weight:700;}
+  .testi-role{font-size:12px; color:var(--muted);}
+
+  /* PRICING */
+  .pricing-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:20px; align-items:stretch;}
+  @media (max-width:900px){ .pricing-grid{grid-template-columns:1fr; max-width:420px; margin:0 auto;} }
+  .price-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:30px 26px;
+    display:flex; flex-direction:column;
+  }
+  .price-card.featured{border:2px solid var(--thread); box-shadow:0 20px 44px rgba(47,128,116,.16); position:relative;}
+  .badge-popular{
+    position:absolute; top:-13px; left:50%; transform:translateX(-50%); background:var(--thread); color:#fff;
+    font-size:11px; font-weight:700; padding:4px 12px; border-radius:20px; letter-spacing:.3px;
+  }
+  .price-name{font-size:14px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;}
+  .price-amount{font-size:34px; font-weight:700; color:var(--ink); margin:10px 0 2px; font-family:'Space Grotesk',sans-serif;}
+  .price-period{font-size:13px; color:var(--muted); margin-bottom:20px;}
+  .price-features{list-style:none; padding:0; margin:0 0 26px; display:flex; flex-direction:column; gap:11px; flex:1;}
+  .price-features li{display:flex; gap:9px; font-size:13.5px; color:var(--text);}
+  .check{color:var(--thread); flex-shrink:0; margin-top:1px;}
+
+  /* ABOUT */
+  .about-grid{display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center;}
+  @media (max-width:860px){ .about-grid{grid-template-columns:1fr;} }
+  .about-stats{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:26px;}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px;}
+  .stat b{display:block; font-size:24px; font-family:'Space Grotesk',sans-serif; color:var(--ink);}
+  .stat span{font-size:12.5px; color:var(--muted);}
+
+  /* FAQ */
+  .faq-list{max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:10px;}
+  details{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px;}
+  summary{cursor:pointer; font-weight:600; font-size:15px; list-style:none; display:flex; justify-content:space-between; align-items:center;}
+  summary::-webkit-details-marker{display:none;}
+  summary::after{content:'+'; font-size:20px; color:var(--faint); font-weight:400;}
+  details[open] summary::after{content:'–';}
+  details p{margin:12px 0 0; color:var(--muted); font-size:14px;}
+
+  /* CONTACT */
+  .contact-wrap{display:grid; grid-template-columns:1fr 1fr; gap:50px;}
+  @media (max-width:860px){ .contact-wrap{grid-template-columns:1fr;} }
+  .form-row{margin-bottom:16px;}
+  .form-row label{display:block; font-size:12.5px; font-weight:600; color:var(--muted); margin-bottom:6px;}
+  .form-row input, .form-row textarea{
+    width:100%; border:1px solid var(--line); border-radius:9px; padding:11px 13px; font-size:14px;
+    font-family:inherit; background:#fff; color:var(--text); outline:none;
+  }
+  .form-row input:focus, .form-row textarea:focus{border-color:var(--thread);}
+  .contact-side{background:var(--ink); color:#fff; border-radius:16px; padding:34px 30px;}
+  .contact-side h3{color:#fff; font-size:19px; margin-bottom:12px;}
+  .contact-side p{color:#B7C0CC; font-size:14px; margin-bottom:22px;}
+  .contact-side .btn-light{width:100%; justify-content:center;}
+
+  /* FINAL CTA */
+  .final-cta{background:var(--ink); color:#fff; border-radius:22px; text-align:center; padding:64px 32px; margin:0 24px;}
+  .final-cta h2{color:#fff; font-size:30px; margin-bottom:12px;}
+  .final-cta p{color:#B7C0CC; margin-bottom:26px; font-size:15.5px;}
+
+  footer{border-top:1px solid var(--line); padding:50px 0 30px; font-size:13.5px; color:var(--muted);}
+  .footer-grid{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:30px; margin-bottom:30px;}
+  @media (max-width:700px){ .footer-grid{grid-template-columns:1fr 1fr;} }
+  .footer-grid h4{font-size:12.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink); margin-bottom:14px;}
+  .footer-grid a{display:block; color:var(--muted); text-decoration:none; margin-bottom:9px; font-size:13.5px;}
+  .footer-grid a:hover{color:var(--ink);}
+  .footer-bottom{display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; border-top:1px solid var(--line); padding-top:22px; font-size:12.5px; color:var(--faint);}
+
+  /* MODAL */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(20,27,38,.55); display:none; align-items:center; justify-content:center;
+    z-index:200; padding:16px;
+  }
+  .modal-backdrop.open{display:flex;}
+  .modal{background:#fff; border-radius:16px; padding:32px; max-width:400px; width:100%; position:relative;}
+  .modal-close{position:absolute; top:16px; right:16px; background:none; border:none; cursor:pointer; color:var(--faint); font-size:18px;}
+  .modal h3{font-size:20px; margin-bottom:8px;}
+  .modal p{color:var(--muted); font-size:14px; margin-bottom:20px;}
+  .modal .btn-primary{width:100%; justify-content:center;}
+  .success-box{display:none; text-align:center; padding:10px 0;}
+  .success-box.show{display:block;}
+  .success-icon{width:46px; height:46px; border-radius:50%; background:#2F80741a; color:var(--thread); display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:22px;}
+
+  @media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto !important; transition:none !important;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <div class="logo">
+        <svg class="logo-mark" viewBox="0 0 26 26" fill="none"><rect width="26" height="26" rx="7" fill="#2F8074"/><path d="M6 13c3 0 3-5 6-5s3 5 6 5-3 5-6 5-3-5-6-5z" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Krayo
+      </div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#testimonials">Testimonials</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <div class="nav-cta">
+        <a class="nav-signin" href="#" onclick="openModal('signin');return false;">Sign in</a>
+        <a class="btn btn-primary" href="#" onclick="openModal('trial');return false;">Start free trial</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">Requirements → Testing → Resolution</span>
+        <h1>Every requirement.<br>Every test. One connected thread.</h1>
+        <p class="lead">Krayo is the single system of record for enterprise implementations — requirements, RTM, CRP/SIT/UAT testing, defects, decisions, and risk, all linked so your team can see exactly how everything connects.</p>
+        <div class="hero-ctas">
+          <a class="btn btn-primary btn-lg" href="#" onclick="openModal('trial');return false;">Start free trial</a>
+          <a class="btn btn-ghost btn-lg" href="#contact">Book a demo</a>
+        </div>
+        <div class="hero-note">No credit card required · 14-day free trial · Set up in minutes</div>
+      </div>
+      <div class="thread-card" role="img" aria-label="Diagram showing a requirement linked to a passed test case, with an open defect flagged">
+        <div class="thread-title">Live traceability — REQ-014</div>
+
+        <div class="thread-row">
+          <div class="thread-node" style="background:#3B6FA02a;color:#7FA8CE;">R</div>
+          <div>
+            <div class="thread-label">Direct deposit setup validation</div>
+            <div class="thread-sub">REQ-014 · Approved</div>
+          </div>
+        </div>
+        <div class="thread-line"></div>
+        <div class="thread-row">
+          <div class="thread-node" style="background:#C08A2E2a;color:#E0B466;">T</div>
+          <div>
+            <div class="thread-label">UAT-021 · Employee self-service test</div>
+            <div class="thread-sub">Cycle: UAT</div>
+          </div>
+          <div class="thread-status" style="background:#2F807433;color:#7FD8C6;">Passed</div>
+        </div>
+        <div class="thread-line" style="background:linear-gradient(180deg, var(--red), transparent);"></div>
+        <div class="thread-row">
+          <div class="thread-node" style="background:#B24C4C2a;color:#E39494;">D</div>
+          <div>
+            <div class="thread-label">Rounding error on split deposits</div>
+            <div class="thread-sub">DEF-038</div>
+          </div>
+          <div class="thread-status" style="background:#B24C4C33;color:#E39494;">Open</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST STRIP -->
+  <div class="trust">
+    <div class="wrap">
+      <span class="trust-label">Built for teams running large-scale ERP and platform implementations</span>
+      <div class="trust-badges">
+        <span class="trust-badge">🔒 Encrypted in transit &amp; at rest</span>
+        <span class="trust-badge">🪪 SSO / SAML on Enterprise</span>
+        <span class="trust-badge">📋 SOC 2 Type II in progress</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Everything, connected</span>
+        <h2>Not just planning — everything.</h2>
+        <p>Requirements, RTM, CRP, SIT, UAT, action items, test cases, defects, key decisions, RAID log, job aids. One place where you can see how everything connects.</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-card" style="--card-color:#3B6FA0;">
+          <div class="feature-icon">📋</div>
+          <h3>Requirements &amp; RTM</h3>
+          <p>Every requirement traced to the tests that prove it — coverage gaps are flagged automatically, not discovered in UAT.</p>
+        </div>
+        <div class="feature-card" style="--card-color:#C08A2E;">
+          <div class="feature-icon">🧪</div>
+          <h3>CRP, SIT &amp; UAT cycles</h3>
+          <p>Run every test cycle from one place, organized by phase, without losing history when you move from CRP into SIT.</p>
+        </div>
+        <div class="feature-card" style="--card-color:#B24C4C;">
+          <div class="feature-icon">🐞</div>
+          <h3>Defect tracking</h3>
+          <p>Defects link straight back to the test case that found them, so context never gets lost between QA and the fix.</p>
+        </div>
+        <div class="feature-card" style="--card-color:#7B5EA7;">
+          <div class="feature-icon">⚖️</div>
+          <h3>Key decisions log</h3>
+          <p>Capture the calls made mid-project, tied to the requirement they affect, so the reasoning stays visible later.</p>
+        </div>
+        <div class="feature-card" style="--card-color:#B4652A;">
+          <div class="feature-icon">🛡️</div>
+          <h3>RAID log</h3>
+          <p>Risks, assumptions, issues, and dependencies in one running log, owned and status-tracked like everything else.</p>
+        </div>
+        <div class="feature-card" style="--card-color:#141B26;">
+          <div class="feature-icon">🔐</div>
+          <h3>Enterprise-ready security</h3>
+          <p>SSO/SAML, role-based permissions, and audit logs — built to clear IT security review before your team ever logs in.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section id="testimonials" style="background:#EEF1F4;">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Trusted on the ground</span>
+        <h2>Teams running real implementations</h2>
+      </div>
+      <div class="testi-grid">
+        <div class="testi-card">
+          <p class="testi-quote">"We replaced six spreadsheets and a shared drive folder with Krayo. Everyone actually opens the same source of truth now instead of asking whose version is current."</p>
+          <div class="testi-person">
+            <div class="testi-avatar">P</div>
+            <div><div class="testi-name">Priya Shah</div><div class="testi-role">PMO Director, Meridian Health Systems</div></div>
+          </div>
+        </div>
+        <div class="testi-card">
+          <p class="testi-quote">"The RTM view alone paid for itself. We caught two untested requirements a week before go-live that would've otherwise slipped through."</p>
+          <div class="testi-person">
+            <div class="testi-avatar">D</div>
+            <div><div class="testi-name">David Ochoa</div><div class="testi-role">QA Lead, Northbridge Retail Group</div></div>
+          </div>
+        </div>
+        <div class="testi-card">
+          <p class="testi-quote">"Security review took two days instead of two weeks — SSO and the audit log were exactly what our IT team needed to see."</p>
+          <div class="testi-person">
+            <div class="testi-avatar">L</div>
+            <div><div class="testi-name">Lena Fischer</div><div class="testi-role">IT Director, Ashford Manufacturing</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="pricing">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Simple, seat-based pricing</span>
+        <h2>Start free. Scale to enterprise.</h2>
+        <p>No credit card required to try it. Upgrade whenever your team's ready.</p>
+      </div>
+      <div class="pricing-grid">
+        <div class="price-card">
+          <div class="price-name">Free trial</div>
+          <div class="price-amount">$0</div>
+          <div class="price-period">14 days, up to 3 seats</div>
+          <ul class="price-features">
+            <li><span class="check">✓</span> 1 project</li>
+            <li><span class="check">✓</span> All core modules</li>
+            <li><span class="check">✓</span> Community support</li>
+          </ul>
+          <a class="btn btn-ghost" href="#" onclick="openModal('trial');return false;" style="justify-content:center;">Start free trial</a>
+        </div>
+        <div class="price-card featured">
+          <span class="badge-popular">Most popular</span>
+          <div class="price-name">Team</div>
+          <div class="price-amount">$15<span style="font-size:15px;color:var(--muted);">/seat</span></div>
+          <div class="price-period">Billed monthly or annually</div>
+          <ul class="price-features">
+            <li><span class="check">✓</span> Up to 10 projects</li>
+            <li><span class="check">✓</span> Roles &amp; permissions</li>
+            <li><span class="check">✓</span> Full traceability &amp; RTM</li>
+            <li><span class="check">✓</span> Email support</li>
+          </ul>
+          <a class="btn btn-primary" href="#" onclick="openModal('trial');return false;" style="justify-content:center;">Start free trial</a>
+        </div>
+        <div class="price-card">
+          <div class="price-name">Enterprise</div>
+          <div class="price-amount">Custom</div>
+          <div class="price-period">Annual contract</div>
+          <ul class="price-features">
+            <li><span class="check">✓</span> Unlimited projects &amp; seats</li>
+            <li><span class="check">✓</span> SSO / SAML + SCIM</li>
+            <li><span class="check">✓</span> Audit log &amp; data residency</li>
+            <li><span class="check">✓</span> Dedicated support &amp; SLA</li>
+          </ul>
+          <a class="btn btn-ghost" href="#contact" style="justify-content:center;">Talk to sales</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="about" style="background:#EEF1F4;">
+    <div class="wrap about-grid">
+      <div>
+        <span class="eyebrow">About Krayo</span>
+        <h2 style="font-size:30px;margin-bottom:16px;">Implementations don't fail from lack of effort. They fail from lost context.</h2>
+        <p style="color:var(--muted);font-size:15px;">Krayo was built by people who've lived through go-lives run out of a dozen disconnected spreadsheets — a requirements tracker here, a defect log there, a RAID log nobody opens after kickoff. We built the tool we wished we'd had: one connected system where a requirement, its tests, and every defect it surfaced are always one click apart.</p>
+        <div class="about-stats">
+          <div class="stat"><b>8</b><span>Workstreams tracked in one place</span></div>
+          <div class="stat"><b>1</b><span>Source of truth per project</span></div>
+        </div>
+      </div>
+      <div class="thread-card" style="background:var(--card); color:var(--text); border:1px solid var(--line); box-shadow:none;">
+        <div class="thread-title" style="color:var(--muted);">Why teams switch</div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;gap:12px;"><span style="color:var(--thread);font-weight:700;">01</span><span style="font-size:14px;color:var(--text);">Stop maintaining a traceability matrix by hand — it's generated from real links.</span></div>
+          <div style="display:flex;gap:12px;"><span style="color:var(--thread);font-weight:700;">02</span><span style="font-size:14px;color:var(--text);">One login for the whole team instead of a folder of spreadsheet versions.</span></div>
+          <div style="display:flex;gap:12px;"><span style="color:var(--thread);font-weight:700;">03</span><span style="font-size:14px;color:var(--text);">Security review moves fast because SSO and audit logs are already there.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Questions</span>
+        <h2>Frequently asked</h2>
+      </div>
+      <div class="faq-list">
+        <details open>
+          <summary>Do I need a credit card to start a free trial?</summary>
+          <p>No. You can start a 14-day free trial with just a work email — no credit card required.</p>
+        </details>
+        <details>
+          <summary>Does Krayo support SSO for enterprise teams?</summary>
+          <p>Yes. Krayo supports SAML-based single sign-on on the Enterprise plan, along with audit logging and role-based permissions.</p>
+        </details>
+        <details>
+          <summary>Can Krayo replace our requirements traceability matrix spreadsheet?</summary>
+          <p>Yes. Requirements and test cases are linked directly in the product, so the traceability matrix is generated automatically instead of maintained by hand.</p>
+        </details>
+        <details>
+          <summary>How is Krayo priced?</summary>
+          <p>Krayo is priced per seat on the Team plan, with custom annual contracts available on the Enterprise plan.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" style="background:#EEF1F4;">
+    <div class="wrap contact-wrap">
+      <div>
+        <span class="eyebrow">Get in touch</span>
+        <h2 style="font-size:28px;margin-bottom:18px;">Talk to us before you buy</h2>
+        <form id="contact-form" onsubmit="submitContact(event)">
+          <div class="form-row"><label for="name">Name</label><input id="name" required /></div>
+          <div class="form-row"><label for="email">Work email</label><input id="email" type="email" required /></div>
+          <div class="form-row"><label for="company">Company</label><input id="company" /></div>
+          <div class="form-row"><label for="message">What are you looking to solve?</label><textarea id="message" rows="4"></textarea></div>
+          <button class="btn btn-primary" type="submit">Send message</button>
+        </form>
+      </div>
+      <div class="contact-side">
+        <h3>Prefer a live walkthrough?</h3>
+        <p>Book 20 minutes with our team to see requirements, RTM, and defect tracking connected in real time on your own use case.</p>
+        <a class="btn btn-light" href="#" onclick="openModal('trial');return false;">Book a demo</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap" style="padding:0 0 20px;">
+    <div class="final-cta">
+      <h2>See how everything connects.</h2>
+      <p>Start free in minutes — no credit card required.</p>
+      <a class="btn btn-primary btn-lg" href="#" onclick="openModal('trial');return false;">Start free trial</a>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-grid">
+      <div>
+        <div class="logo" style="margin-bottom:12px;">
+          <svg class="logo-mark" viewBox="0 0 26 26" fill="none"><rect width="26" height="26" rx="7" fill="#2F8074"/><path d="M6 13c3 0 3-5 6-5s3 5 6 5-3 5-6 5-3-5-6-5z" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Krayo
+        </div>
+        <p style="max-width:260px;">The connected system of record for enterprise implementation projects.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <a href="#about">About</a>
+        <a href="#testimonials">Testimonials</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Security</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Krayo. All rights reserved.</span>
+      <span>Made for teams who'd rather build one thread than chase six spreadsheets.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- MODAL -->
+<div class="modal-backdrop" id="modal-backdrop" onclick="if(event.target===this) closeModal()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-form-box">
+      <h3 id="modal-title">Start your free trial</h3>
+      <p id="modal-sub">No credit card required. Takes about a minute.</p>
+      <form id="signup-form" onsubmit="submitSignup(event)">
+        <div class="form-row"><label for="modal-email">Work email</label><input id="modal-email" type="email" required /></div>
+        <button class="btn btn-primary" type="submit">Continue</button>
+      </form>
+    </div>
+    <div class="success-box" id="success-box">
+      <div class="success-icon">✓</div>
+      <h3 style="text-align:center;">Check your inbox</h3>
+      <p style="text-align:center;">We've sent a link to finish setting up your account.</p>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openModal(kind){
+    document.getElementById('modal-backdrop').classList.add('open');
+    document.getElementById('modal-form-box').style.display = 'block';
+    document.getElementById('success-box').classList.remove('show');
+    document.getElementById('modal-title').textContent = kind === 'signin' ? 'Sign in to Krayo' : 'Start your free trial';
+    document.getElementById('modal-sub').textContent = kind === 'signin' ? 'Enter your work email to continue.' : 'No credit card required. Takes about a minute.';
+  }
+  function closeModal(){
+    document.getElementById('modal-backdrop').classList.remove('open');
+  }
+  function submitSignup(e){
+    e.preventDefault();
+    document.getElementById('modal-form-box').style.display = 'none';
+    document.getElementById('success-box').classList.add('show');
+  }
+  function submitContact(e){
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.textContent = 'Message sent ✓';
+    btn.disabled = true;
+    e.target.querySelectorAll('input,textarea').forEach(el => el.disabled = true);
+  }
+</script>
+
+</body>
+</html>
