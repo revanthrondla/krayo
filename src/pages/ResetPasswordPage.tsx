@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CheckCircle2, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, ArrowRight, Loader2, MailCheck } from 'lucide-react';
 import { KrayoLogo } from '../components/Logo';
 import { supabase } from '../lib/supabase';
 import { friendlyMessage } from '../lib/errors';
 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
-  const [status, setStatus] = useState<'verifying' | 'ready' | 'success' | 'error'>('verifying');
+  const [status, setStatus] = useState<'verifying' | 'ready' | 'success' | 'error' | 'email-verified' | 'email-error'>('verifying');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'reset' | 'verify'>('reset');
 
   useEffect(() => {
     let cancelled = false;
@@ -22,14 +23,34 @@ export function ResetPasswordPage() {
         if (cancelled) return;
         if (sessionError || !data.session) {
           setStatus('error');
-          setError('This password reset link is invalid or has expired. Please request a new one.');
+          setError('This link is invalid or has expired. Please request a new one.');
           return;
         }
+
+        const emailConfirmedAt = data.session.user.email_confirmed_at;
+        if (!emailConfirmedAt) {
+          setMode('verify');
+          try {
+            const { error: profileError } = await supabase
+              .from('user_profiles')
+              .update({ email_verified: true })
+              .eq('id', data.session.user.id);
+            if (profileError) throw profileError;
+            if (cancelled) return;
+            setStatus('email-verified');
+          } catch (err) {
+            if (cancelled) return;
+            setStatus('email-error');
+            setError(friendlyMessage(err, 'Could not verify your email.'));
+          }
+          return;
+        }
+
         setStatus('ready');
       } catch {
         if (cancelled) return;
         setStatus('error');
-        setError('This password reset link is invalid or has expired. Please request a new one.');
+        setError('This link is invalid or has expired. Please request a new one.');
       }
     })();
     return () => { cancelled = true; };
@@ -58,8 +79,26 @@ export function ResetPasswordPage() {
         {status === 'verifying' && (
           <>
             <Loader2 size={32} className="text-thread mx-auto mb-3 animate-spin" />
-            <h1 className="text-lg font-semibold mb-1">Verifying reset link…</h1>
+            <h1 className="text-lg font-semibold mb-1">{mode === 'verify' ? 'Verifying your email…' : 'Verifying reset link…'}</h1>
             <p className="text-sm text-text-muted">Please wait a moment.</p>
+          </>
+        )}
+        {status === 'email-verified' && (
+          <>
+            <MailCheck size={32} className="text-green-600 mx-auto mb-3" />
+            <h1 className="text-lg font-semibold mb-1">Email verified!</h1>
+            <p className="text-sm text-text-muted mb-5">Your email address has been confirmed. You're all set.</p>
+            <button className="btn btn-primary w-full" onClick={() => navigate('/app')}>
+              Continue to Krayo <ArrowRight size={16} />
+            </button>
+          </>
+        )}
+        {status === 'email-error' && (
+          <>
+            <AlertCircle size={32} className="text-red-500 mx-auto mb-3" />
+            <h1 className="text-lg font-semibold mb-1">Verification failed</h1>
+            <p className="text-sm text-text-muted mb-5">{error}</p>
+            <Link to="/signin" className="btn btn-ghost btn-sm">Back to sign in</Link>
           </>
         )}
         {status === 'ready' && (

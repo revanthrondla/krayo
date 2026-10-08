@@ -1,3 +1,4 @@
+// send-verification-email: sends verification email via Resend (custom token), falls back to Supabase OTP
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -44,29 +45,19 @@ Deno.serve(async (req: Request) => {
 
     const appUrl = Deno.env.get("APP_URL") ?? "http://localhost:5173";
 
-    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-      type: "recovery",
-      email: user.email,
-      options: {
-        redirectTo: `${appUrl}/verify-email?action=confirm`,
-      },
+    const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    const { error: tokenError } = await admin.from("email_verification_tokens").insert({
+      user_id: user.id,
+      token,
+      expires_at: expiresAt,
+      used: false,
     });
+    if (tokenError) throw tokenError;
 
-    if (linkError) {
-      console.error("generateLink error:", linkError.message);
-      return new Response(JSON.stringify({ error: "Failed to generate verification link" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const verifyLink = `${appUrl}/verify-email?token=${token}`;
 
-    if (!linkData?.properties?.action_link) {
-      console.error("No action_link in generateLink response");
-      return new Response(JSON.stringify({ error: "Failed to generate verification link" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const actionLink = linkData.properties.action_link;
     const { data: profile } = await admin
       .from("user_profiles")
       .select("display_name")
@@ -74,6 +65,33 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     const displayName = (profile as { display_name: string | null } | null)?.display_name ?? user.email.split("@")[0];
+
+    const emailHtml = `<!DOCTYPE html>
+<html>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1a1a2e;">
+  <div style="margin-bottom: 24px;">
+    <h1 style="font-size: 20px; font-weight: 700; color: #1a1a2e; margin: 0;">Krayo</h1>
+  </div>
+  <h2 style="font-size: 18px; font-weight: 600; margin: 0 0 16px 0;">Hi ${displayName},</h2>
+  <p style="font-size: 15px; line-height: 1.6; color: #4a4a6a; margin: 0 0 24px 0;">
+    Welcome to Krayo! Please verify your email address to complete your account setup.
+  </p>
+  <a href="${verifyLink}" style="display: inline-block; background: #2d6a4f; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600; margin-bottom: 24px;">
+    Verify my email
+  </a>
+  <p style="font-size: 13px; line-height: 1.6; color: #8a8a9a; margin: 0 0 8px 0;">
+    Or copy this link into your browser:
+  </p>
+  <p style="font-size: 13px; line-height: 1.6; color: #2d6a4f; word-break: break-all; margin: 0 0 24px 0;">
+    ${verifyLink}
+  </p>
+  <p style="font-size: 13px; color: #8a8a9a; margin: 0 0 8px 0;">
+    This link expires in 24 hours. If you didn't create a Krayo account, you can safely ignore this email.
+  </p>
+  <hr style="border: none; border-top: 1px solid #e0e0e8; margin: 24px 0;" />
+  <p style="font-size: 12px; color: #a0a0b0; margin: 0;">Krayo - Project Delivery Platform</p>
+</body>
+</html>`;
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     let emailSent = false;
@@ -90,32 +108,7 @@ Deno.serve(async (req: Request) => {
             from: "Krayo <onboarding@resend.dev>",
             to: [user.email],
             subject: "Verify your email - Krayo",
-            html: `<!DOCTYPE html>
-<html>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1a1a2e;">
-  <div style="margin-bottom: 24px;">
-    <h1 style="font-size: 20px; font-weight: 700; color: #1a1a2e; margin: 0;">Krayo</h1>
-  </div>
-  <h2 style="font-size: 18px; font-weight: 600; margin: 0 0 16px 0;">Hi ${displayName},</h2>
-  <p style="font-size: 15px; line-height: 1.6; color: #4a4a6a; margin: 0 0 24px 0;">
-    Welcome to Krayo! Please verify your email address to complete your account setup.
-  </p>
-  <a href="${actionLink}" style="display: inline-block; background: #2d6a4f; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 600; margin-bottom: 24px;">
-    Verify my email
-  </a>
-  <p style="font-size: 13px; line-height: 1.6; color: #8a8a9a; margin: 0 0 8px 0;">
-    Or copy this link into your browser:
-  </p>
-  <p style="font-size: 13px; line-height: 1.6; color: #2d6a4f; word-break: break-all; margin: 0 0 24px 0;">
-    ${actionLink}
-  </p>
-  <p style="font-size: 13px; color: #8a8a9a; margin: 0 0 8px 0;">
-    This link expires in 24 hours. If you didn't create a Krayo account, you can safely ignore this email.
-  </p>
-  <hr style="border: none; border-top: 1px solid #e0e0e8; margin: 24px 0;" />
-  <p style="font-size: 12px; color: #a0a0b0; margin: 0;">Krayo - Project Delivery Platform</p>
-</body>
-</html>`,
+            html: emailHtml,
           }),
         });
 
@@ -133,7 +126,6 @@ Deno.serve(async (req: Request) => {
     if (!emailSent) {
       const { error: sendError } = await admin.auth.admin.sendOtp(user.email, {
         shouldCreateUser: false,
-        emailRedirectTo: `${appUrl}/verify-email?action=confirm`,
       });
       if (sendError) {
         console.error("Supabase OTP send error:", sendError.message);
