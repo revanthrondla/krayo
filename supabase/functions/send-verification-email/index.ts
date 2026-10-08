@@ -45,15 +45,18 @@ Deno.serve(async (req: Request) => {
 
     const appUrl = Deno.env.get("APP_URL") ?? "http://localhost:5173";
 
-    // Primary: use Supabase's built-in email (no custom domain DNS required)
-    const { error: sendError } = await admin.auth.admin.sendOtp(user.email, {
-      shouldCreateUser: false,
-      emailRedirectTo: `${appUrl}/verify-email?action=confirm`,
+    // Supabase sends the verification email through the authenticated client.
+    const { error: sendError } = await userClient.auth.signInWithOtp({
+      email: user.email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${appUrl}/verify-email?action=confirm`,
+      },
     });
     let emailSent = !sendError;
 
     if (sendError) {
-      console.error("Supabase OTP send error:", sendError.message);
+      console.error("Supabase verification email error:", sendError.message);
     }
 
     // Fallback: Resend with custom token link (only if Supabase email fails)

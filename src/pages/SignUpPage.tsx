@@ -20,7 +20,7 @@ export function SignUpPage() {
     try {
       await signUp(email, password);
       const { error: verifyError } = await supabase.functions.invoke('send-verification-email', {});
-      if (verifyError) console.error('Verification email failed:', verifyError);
+      if (verifyError) throw verifyError;
       setVerificationSent(true);
       // Navigate to app after showing the confirmation briefly
       setTimeout(() => navigate('/app'), 2500);
