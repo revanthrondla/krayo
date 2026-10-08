@@ -1,4 +1,4 @@
-// send-verification-email: sends verification email via Resend (custom token), falls back to Supabase OTP
+// send-verification-email: sends verification email via Supabase built-in email, falls back to Resend (custom token)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -45,28 +45,41 @@ Deno.serve(async (req: Request) => {
 
     const appUrl = Deno.env.get("APP_URL") ?? "http://localhost:5173";
 
-    const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-    const { error: tokenError } = await admin.from("email_verification_tokens").insert({
-      user_id: user.id,
-      token,
-      expires_at: expiresAt,
-      used: false,
+    // Primary: use Supabase's built-in email (no custom domain DNS required)
+    const { error: sendError } = await admin.auth.admin.sendOtp(user.email, {
+      shouldCreateUser: false,
+      emailRedirectTo: `${appUrl}/verify-email?action=confirm`,
     });
-    if (tokenError) throw tokenError;
+    let emailSent = !sendError;
 
-    const verifyLink = `${appUrl}/verify-email?token=${token}`;
+    if (sendError) {
+      console.error("Supabase OTP send error:", sendError.message);
+    }
 
-    const { data: profile } = await admin
-      .from("user_profiles")
-      .select("display_name")
-      .eq("id", user.id)
-      .maybeSingle();
+    // Fallback: Resend with custom token link (only if Supabase email fails)
+    if (!emailSent) {
+      const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-    const displayName = (profile as { display_name: string | null } | null)?.display_name ?? user.email.split("@")[0];
+      const { error: tokenError } = await admin.from("email_verification_tokens").insert({
+        user_id: user.id,
+        token,
+        expires_at: expiresAt,
+        used: false,
+      });
+      if (tokenError) throw tokenError;
 
-    const emailHtml = `<!DOCTYPE html>
+      const verifyLink = `${appUrl}/verify-email?token=${token}`;
+
+      const { data: profile } = await admin
+        .from("user_profiles")
+        .select("display_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const displayName = (profile as { display_name: string | null } | null)?.display_name ?? user.email.split("@")[0];
+
+      const emailHtml = `<!DOCTYPE html>
 <html>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1a1a2e;">
   <div style="margin-bottom: 24px;">
@@ -93,46 +106,39 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`;
 
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    let emailSent = false;
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      if (resendApiKey) {
+        try {
+          const emailResponse = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: "Krayo <onboarding@resend.dev>",
+              to: [user.email],
+              subject: "Verify your email - Krayo",
+              html: emailHtml,
+            }),
+          });
 
-    if (resendApiKey) {
-      try {
-        const emailResponse = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${resendApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: "Krayo <onboarding@resend.dev>",
-            to: [user.email],
-            subject: "Verify your email - Krayo",
-            html: emailHtml,
-          }),
-        });
-
-        if (emailResponse.ok) {
-          emailSent = true;
-        } else {
-          const errText = await emailResponse.text();
-          console.error("Resend error:", errText);
+          if (emailResponse.ok) {
+            emailSent = true;
+          } else {
+            const errText = await emailResponse.text();
+            console.error("Resend error:", errText);
+          }
+        } catch (err) {
+          console.error("Resend fetch failed:", err);
         }
-      } catch (err) {
-        console.error("Resend fetch failed:", err);
       }
     }
 
     if (!emailSent) {
-      const { error: sendError } = await admin.auth.admin.sendOtp(user.email, {
-        shouldCreateUser: false,
+      return new Response(JSON.stringify({ error: "Failed to send verification email" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-      if (sendError) {
-        console.error("Supabase OTP send error:", sendError.message);
-        return new Response(JSON.stringify({ error: "Failed to send verification email" }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
     }
 
     return new Response(JSON.stringify({ sent: true }), {
