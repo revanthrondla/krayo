@@ -48,15 +48,7 @@ export function AppShell() {
   useEffect(() => {
     if (user) {
       fetchNotifications();
-      (async () => {
-        const profile = await getProfile();
-        const profileFlag = profile?.email_verified ?? false;
-        const authConfirmed = !!user.email_confirmed_at;
-        if (authConfirmed && !profileFlag) {
-          await supabase.rpc('confirm_own_email');
-        }
-        setEmailVerified(profileFlag || authConfirmed);
-      })();
+      getProfile().then((p) => setEmailVerified(p?.email_verified ?? false));
     }
     const interval = setInterval(() => { if (user) fetchNotifications(); }, 30000);
     return () => clearInterval(interval);

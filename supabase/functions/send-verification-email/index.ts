@@ -45,8 +45,15 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(supabaseUrl, serviceKey);
     const appUrl = Deno.env.get("APP_URL") ?? "http://localhost:5173";
 
-    // If already confirmed, nothing to do
-    if (user.email_confirmed_at) {
+    // Check the app's own verification flag, not Supabase Auth's email_confirmed_at
+    // (which is auto-set when Supabase email confirmation is off)
+    const { data: existingProfile } = await admin
+      .from("user_profiles")
+      .select("email_verified, display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if ((existingProfile as { email_verified: boolean } | null)?.email_verified) {
       return new Response(JSON.stringify({ sent: true, alreadyVerified: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -66,13 +73,7 @@ Deno.serve(async (req: Request) => {
 
     const verifyLink = `${appUrl}/verify-email?token=${token}`;
 
-    const { data: profile } = await admin
-      .from("user_profiles")
-      .select("display_name")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    const displayName = (profile as { display_name: string | null } | null)?.display_name ?? user.email.split("@")[0];
+    const displayName = (existingProfile as { display_name: string | null } | null)?.display_name ?? user.email.split("@")[0];
 
     const emailHtml = `<!DOCTYPE html>
 <html>
