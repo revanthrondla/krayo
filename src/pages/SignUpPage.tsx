@@ -22,10 +22,14 @@ export function SignUpPage() {
       await signUp(email, password);
       let emailDelivered = true;
       try {
-        const { error: verifyError } = await supabase.functions.invoke('send-verification-email', {});
-        if (verifyError) emailDelivered = false;
-      } catch {
+        const { data: verifyData, error: verifyError } = await supabase.functions.invoke('send-verification-email', {});
+        if (verifyError || verifyData?.error) {
+          emailDelivered = false;
+          console.error('Verification email send failed:', verifyError?.message ?? verifyData?.detail ?? verifyData?.error);
+        }
+      } catch (err) {
         emailDelivered = false;
+        console.error('Verification email invoke failed:', err);
       }
       setVerificationSent(true);
       setEmailWarning(!emailDelivered);

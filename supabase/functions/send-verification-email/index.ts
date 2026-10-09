@@ -105,8 +105,11 @@ Deno.serve(async (req: Request) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "Krayo <onboarding@resend.dev>";
     let emailSent = false;
+    let failDetail = "";
 
-    if (resendApiKey) {
+    if (!resendApiKey) {
+      failDetail = "RESEND_API_KEY secret is not set on the function";
+    } else {
       try {
         const emailResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -125,16 +128,17 @@ Deno.serve(async (req: Request) => {
         if (emailResponse.ok) {
           emailSent = true;
         } else {
-          const errText = await emailResponse.text();
-          console.error("Resend error:", errText);
+          failDetail = `Resend ${emailResponse.status}: ${await emailResponse.text()}`;
+          console.error("Resend error:", failDetail);
         }
       } catch (err) {
-        console.error("Resend fetch failed:", err);
+        failDetail = `Fetch error: ${err instanceof Error ? err.message : String(err)}`;
+        console.error("Resend fetch failed:", failDetail);
       }
     }
 
     if (!emailSent) {
-      return new Response(JSON.stringify({ error: "Failed to send verification email" }), {
+      return new Response(JSON.stringify({ error: "Failed to send verification email", detail: failDetail }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
