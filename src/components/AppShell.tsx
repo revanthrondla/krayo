@@ -48,7 +48,15 @@ export function AppShell() {
   useEffect(() => {
     if (user) {
       fetchNotifications();
-      getProfile().then((p) => setEmailVerified(p?.email_verified ?? false));
+      (async () => {
+        const profile = await getProfile();
+        const profileFlag = profile?.email_verified ?? false;
+        const authConfirmed = !!user.email_confirmed_at;
+        if (authConfirmed && !profileFlag) {
+          await supabase.rpc('confirm_own_email');
+        }
+        setEmailVerified(profileFlag || authConfirmed);
+      })();
     }
     const interval = setInterval(() => { if (user) fetchNotifications(); }, 30000);
     return () => clearInterval(interval);
@@ -57,9 +65,13 @@ export function AppShell() {
   const handleResendVerification = async () => {
     setResending(true);
     try {
-      await supabase.functions.invoke('send-verification-email', {});
-      setResent(true);
-      setTimeout(() => setResent(false), 5000);
+      const { data } = await supabase.functions.invoke('send-verification-email', {});
+      if (data?.alreadyVerified) {
+        setEmailVerified(true);
+      } else {
+        setResent(true);
+        setTimeout(() => setResent(false), 5000);
+      }
     } catch { /* ignore */ }
     setResending(false);
   };
