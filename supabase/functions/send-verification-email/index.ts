@@ -43,7 +43,10 @@ Deno.serve(async (req: Request) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const appUrl = Deno.env.get("APP_URL") ?? "http://localhost:5173";
+    const originHeader = req.headers.get("Origin") ?? req.headers.get("Referer");
+    const envAppUrl = Deno.env.get("APP_URL");
+    const envLooksValid = envAppUrl && envAppUrl.startsWith("http");
+    const appUrl = (envLooksValid ? envAppUrl : null) ?? (originHeader ? new URL(originHeader).origin : "http://localhost:5173");
 
     // Check the app's own verification flag, not Supabase Auth's email_confirmed_at
     // (which is auto-set when Supabase email confirmation is off)

@@ -129,7 +129,7 @@ export function AppShell() {
             <div className="flex items-center gap-2 min-w-0">
               <button className="lg:hidden text-ink" onClick={() => setSidebarOpen(true)}><Menu size={20} /></button>
               <div className="relative">
-                <button className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-thread transition-colors" onClick={() => { setOrgMenuOpen(!orgMenuOpen); setProjectMenuOpen(false); }}>
+                <button className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-thread transition-colors" onClick={() => { setOrgMenuOpen(!orgMenuOpen); setProjectMenuOpen(false); setNotifOpen(false); }}>
                   <Building2 size={15} className="text-text-muted" />{activeOrg?.name ?? 'Select org'}<ChevronDown size={14} className="text-text-faint" />
                 </button>
                 {orgMenuOpen && (<DropdownMenu onClose={() => setOrgMenuOpen(false)}>
@@ -140,7 +140,7 @@ export function AppShell() {
               </div>
               {activeOrg && (
                 <div className="relative">
-                  <button className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-thread transition-colors" onClick={() => { setProjectMenuOpen(!projectMenuOpen); setOrgMenuOpen(false); }}>
+                  <button className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-thread transition-colors" onClick={() => { setProjectMenuOpen(!projectMenuOpen); setOrgMenuOpen(false); setNotifOpen(false); }}>
                     <FolderKanban size={15} className="text-text-muted" /><ChevronDown size={14} className="text-text-faint" />
                   </button>
                   {projectMenuOpen && (<DropdownMenu onClose={() => setProjectMenuOpen(false)}>
@@ -154,13 +154,13 @@ export function AppShell() {
             </div>
             <div className="flex items-center gap-2">
               <div className="relative">
-                <button className="relative z-20 p-2 rounded-lg hover:bg-card transition-colors text-text-muted" onClick={() => { setNotifOpen(!notifOpen); if (!notifOpen) fetchNotifications(); }}>
+                <button className="relative p-2 rounded-lg hover:bg-card transition-colors text-text-muted" onClick={(e) => { e.stopPropagation(); setOrgMenuOpen(false); setProjectMenuOpen(false); setNotifOpen(!notifOpen); if (!notifOpen) fetchNotifications(); }}>
                   <Bell size={18} />
                   {unreadCount > 0 && <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
                 </button>
                 {notifOpen && (<>
-                  <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-20 w-80 card shadow-xl animate-fade-in max-h-96 overflow-y-auto">
+                  <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-50 w-80 card shadow-xl animate-fade-in max-h-96 overflow-y-auto">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-line">
                       <span className="text-sm font-semibold">Notifications</span>
                       {unreadCount > 0 && <button className="text-xs text-thread hover:underline" onClick={handleMarkAllRead}>Mark all read</button>}
@@ -218,5 +218,5 @@ function SidebarLink({ to, iconKey, label }: { to: string; iconKey: ModuleKey | 
 }
 
 function DropdownMenu({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return <><div className="fixed inset-0 z-10" onClick={onClose} /><div className="absolute top-full left-0 mt-1 z-20 card p-1 min-w-[200px] shadow-lg animate-fade-in">{children}</div></>;
+  return <><div className="fixed inset-0 z-40" onClick={onClose} /><div className="absolute top-full left-0 mt-1 z-50 card p-1 min-w-[200px] shadow-lg animate-fade-in">{children}</div></>;
 }

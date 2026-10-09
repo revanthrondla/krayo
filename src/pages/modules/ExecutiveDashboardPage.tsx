@@ -98,7 +98,14 @@ export function ExecutiveDashboardPage() {
   const failTcs = data.testCases.filter((t) => t.status === 'Failed').length;
   const totalDefs = data.defects.length;
   const openDefs = data.defects.filter((d) => d.status === 'Open' || d.status === 'In Progress').length;
-  const criticalDefs = data.defects.filter((d) => d.severity === 'Critical').length;
+  const openCriticalDefs = data.defects.filter((d) => (d.status === 'Open' || d.status === 'In Progress') && d.severity === 'Critical').length;
+  const openDefSeverityCounts = ['Critical', 'High', 'Medium', 'Low'].map((sev) => {
+    const count = data.defects.filter((d) => (d.status === 'Open' || d.status === 'In Progress') && d.severity === sev).length;
+    return { sev, count };
+  }).filter((s) => s.count > 0);
+  const openDefSeveritySummary = openDefSeverityCounts.length > 0
+    ? openDefSeverityCounts.map((s) => `${s.count} ${s.sev.toLowerCase()}`).join(' · ')
+    : '0 open';
   const totalAis = data.actionItems.length;
   const openAis = data.actionItems.filter((a) => a.status === 'Open' || a.status === 'In Progress').length;
   const doneAis = data.actionItems.filter((a) => a.status === 'Done').length;
@@ -119,7 +126,7 @@ export function ExecutiveDashboardPage() {
   const projectedEnd = latestPlannedEnd ? new Date(new Date(latestPlannedEnd).getTime() + delayDays * 86400000).toISOString().split('T')[0] : null;
 
   const overallProgress = totalMs > 0 ? Math.round(data.milestones.reduce((sum, m) => sum + m.progress, 0) / totalMs) : totalReqs > 0 ? Math.round((approvedReqs / totalReqs) * 100) : 0;
-  const healthScore = Math.max(0, Math.min(100, 100 - (openDefs * 5) - (criticalDefs * 10) - (delayedMs * 10) - (atRiskMs * 5) - (openIssues * 5) - (pastDueAis.length * 3)));
+  const healthScore = Math.max(0, Math.min(100, 100 - (openDefs * 5) - (openCriticalDefs * 10) - (delayedMs * 10) - (atRiskMs * 5) - (openIssues * 5) - (pastDueAis.length * 3)));
   const healthLabel = healthScore >= 80 ? 'Healthy' : healthScore >= 60 ? 'At Risk' : 'Critical';
   const healthColor = healthScore >= 80 ? 'text-green-600 bg-green-50' : healthScore >= 60 ? 'text-orange-600 bg-orange-50' : 'text-red-600 bg-red-50';
 
@@ -138,9 +145,9 @@ export function ExecutiveDashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <KpiCard icon={CheckCircle2} label="Overall Progress" value={`${overallProgress}%`} color="text-thread" />
         <KpiCard icon={TrendingUp} label="Project Health" value={healthLabel} color={healthColor} />
-        <KpiCard icon={ClipboardList} label="Requirements" value={`${approvedReqs}/${totalReqs}`} sub="approved" />
+        <KpiCard icon={ClipboardList} label="Requirements" value={`${approvedReqs}/${totalReqs}`} sub="delivered" />
         <KpiCard icon={FlaskConical} label="Test Pass Rate" value={totalTcs > 0 ? `${Math.round((passTcs / totalTcs) * 100)}%` : '—'} sub={`${passTcs} pass / ${failTcs} fail`} />
-        <KpiCard icon={Bug} label="Open Defects" value={String(openDefs)} sub={`${criticalDefs} critical`} color={openDefs > 0 ? 'text-orange-600' : 'text-green-600'} />
+        <KpiCard icon={Bug} label="Open Defects" value={String(openDefs)} sub={openDefSeveritySummary} color={openDefs > 0 ? 'text-orange-600' : 'text-green-600'} />
         <KpiCard icon={AlertTriangle} label="Open Risks" value={String(openRisks + openIssues)} sub={`${openRisks} risks / ${openIssues} issues`} color={openRisks + openIssues > 0 ? 'text-orange-600' : 'text-green-600'} />
       </div>
 
@@ -228,7 +235,7 @@ export function ExecutiveDashboardPage() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-text-muted">Total</span><span className="font-medium">{totalDefs}</span></div>
             <div className="flex justify-between"><span className="text-text-muted">Open / In Progress</span><span className="font-medium text-orange-600">{openDefs}</span></div>
-            <div className="flex justify-between"><span className="text-text-muted">Critical</span><span className="font-medium text-red-600">{criticalDefs}</span></div>
+            <div className="flex justify-between"><span className="text-text-muted">Critical (open)</span><span className="font-medium text-red-600">{openCriticalDefs}</span></div>
             <div className="flex justify-between"><span className="text-text-muted">Fixed / Verified</span><span className="font-medium text-green-600">{data.defects.filter((d) => d.status === 'Fixed' || d.status === 'Verified').length}</span></div>
           </div>
         </div>
