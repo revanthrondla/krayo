@@ -28,8 +28,8 @@ const PLANS: PlanInfo[] = [
   {
     key: 'team',
     name: 'Team',
-    price: '$49',
-    period: '/month',
+    price: '$29',
+    period: 'per person / month',
     features: ['Unlimited projects', 'Up to 10 team members', 'Unlimited AI generation', 'All Free features', 'Priority email support'],
     highlight: true,
   },

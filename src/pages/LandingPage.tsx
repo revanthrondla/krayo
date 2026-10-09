@@ -44,8 +44,8 @@ const PLANS = [
   },
   {
     name: 'Team',
-    price: 49,
-    period: 'per seat / month',
+    price: 29,
+    period: 'per person / month',
     tagline: 'For QA teams who want to move fast',
     cta: 'Start 14-day trial',
     highlight: true,

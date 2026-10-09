@@ -20,8 +20,8 @@ const PLAN_OPTIONS: PlanOption[] = [
   {
     key: 'team',
     name: 'Team',
-    price: '$49',
-    period: '/month',
+    price: '$29',
+    period: 'per person / month',
     cta: 'Choose Team',
     features: [
       'Unlimited AI generation across all modules',

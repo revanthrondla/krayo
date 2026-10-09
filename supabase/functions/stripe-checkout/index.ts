@@ -15,7 +15,7 @@ const corsHeaders = {
 };
 
 const PLAN_PRICES: Record<string, { price: number; name: string }> = {
-  team: { price: 4900, name: 'Team Plan' },
+  team: { price: 2900, name: 'Team Plan' },
 };
 
 /**
