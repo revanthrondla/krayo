@@ -103,6 +103,7 @@ Deno.serve(async (req: Request) => {
 </html>`;
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "Krayo <onboarding@resend.dev>";
     let emailSent = false;
 
     if (resendApiKey) {
@@ -114,7 +115,7 @@ Deno.serve(async (req: Request) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "Krayo <onboarding@resend.dev>",
+            from: resendFromEmail,
             to: [user.email],
             subject: "Verify your email - Krayo",
             html: emailHtml,

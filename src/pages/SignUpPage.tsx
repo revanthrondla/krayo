@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MailCheck, ArrowLeft } from 'lucide-react';
+import { MailCheck, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import { KrayoLogo } from '../components/Logo';
@@ -14,16 +14,22 @@ export function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [verificationSent, setVerificationSent] = useState(false);
+  const [emailWarning, setEmailWarning] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true); setError(null);
     try {
       await signUp(email, password);
-      const { error: verifyError } = await supabase.functions.invoke('send-verification-email', {});
-      if (verifyError) throw verifyError;
+      let emailDelivered = true;
+      try {
+        const { error: verifyError } = await supabase.functions.invoke('send-verification-email', {});
+        if (verifyError) emailDelivered = false;
+      } catch {
+        emailDelivered = false;
+      }
       setVerificationSent(true);
-      // Navigate to app after showing the confirmation briefly
-      setTimeout(() => navigate('/app'), 2500);
+      setEmailWarning(!emailDelivered);
+      setTimeout(() => navigate('/app'), emailDelivered ? 2500 : 4000);
     } catch (err) {
       setError(friendlyMessage(err, 'Sign up failed'));
     }
@@ -35,13 +41,27 @@ export function SignUpPage() {
       <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-4">
         <div className="card w-full max-w-sm p-7 text-center">
           <div className="flex items-center gap-2 font-bold text-base mb-6 justify-center"><KrayoLogo size={20} /> Krayo</div>
-          <MailCheck size={36} className="text-thread mx-auto mb-4" />
-          <h1 className="text-lg font-semibold mb-2">Check your email</h1>
-          <p className="text-sm text-text-muted mb-4">
-            We sent a verification link to <span className="font-medium text-text">{email}</span>.
-            Click the link to confirm your email address.
-          </p>
-          <p className="text-xs text-text-faint">Redirecting you to the app…</p>
+          {emailWarning ? (
+            <>
+              <AlertTriangle size={36} className="text-amber-500 mx-auto mb-4" />
+              <h1 className="text-lg font-semibold mb-2">Account created</h1>
+              <p className="text-sm text-text-muted mb-4">
+                Your account is ready, but we couldn't send the verification email right now.
+                You can resend it from the banner at the top of the app.
+              </p>
+              <p className="text-xs text-text-faint">Redirecting you to the app…</p>
+            </>
+          ) : (
+            <>
+              <MailCheck size={36} className="text-thread mx-auto mb-4" />
+              <h1 className="text-lg font-semibold mb-2">Check your email</h1>
+              <p className="text-sm text-text-muted mb-4">
+                We sent a verification link to <span className="font-medium text-text">{email}</span>.
+                Click the link to confirm your email address.
+              </p>
+              <p className="text-xs text-text-faint">Redirecting you to the app…</p>
+            </>
+          )}
         </div>
       </div>
     );
