@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import { friendlyMessage } from './errors';
+import { recordActivationEvent, type ActivationEventName } from './activation';
 
 export function useModuleData<T extends { id: string; project_id: string }>(table: string, projectId: string | undefined) {
   const [items, setItems] = useState<T[]>([]);
@@ -23,6 +24,8 @@ export function useModuleData<T extends { id: string; project_id: string }>(tabl
   const insert = useCallback(async (row: Record<string, unknown>): Promise<T> => {
     const { data, error: err } = await supabase.from(table).insert({ ...row, project_id: projectId }).select().single();
     if (err) throw err;
+    const eventName: ActivationEventName | null = table === 'requirements' ? 'first_requirement_created' : table === 'test_cases' ? 'first_test_case_created' : table === 'defects' ? 'first_defect_created' : null;
+    if (eventName && projectId) await recordActivationEvent(eventName, { projectId });
     await refresh();
     return data as T;
   }, [table, projectId, refresh]);
@@ -31,6 +34,8 @@ export function useModuleData<T extends { id: string; project_id: string }>(tabl
     const rowsWithProject = rows.map((r) => ({ ...r, project_id: projectId }));
     const { error: err } = await supabase.from(table).insert(rowsWithProject);
     if (err) throw err;
+    const eventName: ActivationEventName | null = table === 'requirements' ? 'first_requirement_created' : table === 'test_cases' ? 'first_test_case_created' : table === 'defects' ? 'first_defect_created' : null;
+    if (eventName && projectId) await recordActivationEvent(eventName, { projectId });
     await refresh();
   }, [table, projectId, refresh]);
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Home, FolderKanban, CheckSquare, Clock, AlertTriangle,
   Globe, Bell, Save, ArrowRight, Calendar, Building2,
-  Plus, CreditCard, ChevronDown, ChevronUp, X,
+  Plus, CreditCard, ChevronDown, ChevronUp, X, Rocket, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useOrg } from '../lib/org-context';
@@ -12,6 +12,8 @@ import { Loading } from '../components/States';
 import { getProfile, upsertProfile, type UserProfile } from '../lib/notifications';
 import type { ActionItem, Project, Org } from '../lib/types';
 import { friendlyMessage } from '../lib/errors';
+import { recordActivationEvent } from '../lib/activation';
+import { createStarterProjectData } from '../lib/starter-project';
 
 const TIMEZONES = [
   'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
@@ -61,6 +63,7 @@ export function UserHomePage() {
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [creatingProject, setCreatingProject] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [onboardingCounts, setOnboardingCounts] = useState({ requirements: 0, testCases: 0, defects: 0 });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -75,6 +78,18 @@ export function UserHomePage() {
         orgProjectPairs.push({ org, projects: (orgProjects ?? []) as Project[] });
       }
       setAllOrgProjects(orgProjectPairs);
+
+      const firstProject = orgProjectPairs.flatMap((pair) => pair.projects)[0];
+      if (firstProject) {
+        const [requirements, testCases, defects] = await Promise.all([
+          supabase.from('requirements').select('*', { count: 'exact', head: true }).eq('project_id', firstProject.id),
+          supabase.from('test_cases').select('*', { count: 'exact', head: true }).eq('project_id', firstProject.id),
+          supabase.from('defects').select('*', { count: 'exact', head: true }).eq('project_id', firstProject.id),
+        ]);
+        setOnboardingCounts({ requirements: requirements.count ?? 0, testCases: testCases.count ?? 0, defects: defects.count ?? 0 });
+      } else {
+        setOnboardingCounts({ requirements: 0, testCases: 0, defects: 0 });
+      }
 
       if (user) {
         const allProjectIds = orgProjectPairs.flatMap((p) => p.projects.map((proj) => proj.id));
@@ -126,7 +141,7 @@ export function UserHomePage() {
     setCreateError(null);
   };
 
-  const handleCreateProject = async () => {
+  const handleCreateProject = async (withStarterData = false) => {
     if (!newProjectName.trim() || !newProjectOrgId) return;
     const targetOrgId = newProjectOrgId;
     setCreatingProject(true);
@@ -134,6 +149,10 @@ export function UserHomePage() {
     try {
       setActiveOrgId(targetOrgId);
       const project = await createProject(newProjectName.trim(), newProjectDesc.trim() || null);
+      if (withStarterData) {
+        await createStarterProjectData(project.id);
+        await recordActivationEvent('starter_project_created', { orgId: targetOrgId, projectId: project.id });
+      }
       setNewProjectOrgId(null);
       setNewProjectName('');
       setNewProjectDesc('');
@@ -150,6 +169,8 @@ export function UserHomePage() {
   const dueSoonItems = myActionItems.filter((a) => a.due_date && a.due_date >= todayStr && a.due_date <= new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0] && a.status !== 'Done' && a.status !== 'Cancelled');
   const openItems = myActionItems.filter((a) => a.status === 'Open' || a.status === 'In Progress');
   const totalProjects = allOrgProjects.reduce((sum, p) => sum + p.projects.length, 0);
+  const firstProjectPair = allOrgProjects.find((pair) => pair.projects.length > 0);
+  const firstProject = firstProjectPair?.projects[0];
 
   if (loading) return <Loading label="Loading your home…" />;
 
@@ -211,6 +232,11 @@ export function UserHomePage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Getting started */}
+      {firstProject && firstProjectPair && (
+        <GettingStartedCard project={firstProject} orgId={firstProjectPair.org.id} counts={onboardingCounts} onOpen={openProject} />
       )}
 
       {/* My Action Items */}
@@ -288,9 +314,12 @@ export function UserHomePage() {
                   </div>
                 </div>
                 {createError && <p className="text-xs text-red-600">{createError}</p>}
-                <div className="flex gap-2">
-                  <button className="btn btn-primary btn-sm" onClick={handleCreateProject} disabled={creatingProject || !newProjectName.trim()}>
-                    {creatingProject ? 'Creating…' : 'Create project'}
+                <div className="flex gap-2 flex-wrap">
+                  <button className="btn btn-primary btn-sm" onClick={() => handleCreateProject(false)} disabled={creatingProject || !newProjectName.trim()}>
+                    {creatingProject ? 'Creating…' : 'Create blank project'}
+                  </button>
+                  <button className="btn btn-ghost btn-sm border border-line" onClick={() => handleCreateProject(true)} disabled={creatingProject || !newProjectName.trim()}>
+                    <Rocket size={14} /> Use starter template
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setNewProjectOrgId(null)}>Cancel</button>
                 </div>
@@ -299,7 +328,12 @@ export function UserHomePage() {
 
             {/* Projects list */}
             {projects.length === 0 ? (
-              <div className="px-5 py-5 text-sm text-text-muted">No projects yet. Click "New project" to create one.</div>
+              <div className="px-5 py-5 space-y-3">
+                <p className="text-sm text-text-muted">No projects yet. Start blank or use a guided sample project.</p>
+                <button className="btn btn-ghost btn-sm border border-line" onClick={() => { openNewProjectForm(org.id); setNewProjectName(`${org.name} QA Pilot`); }}>
+                  <Rocket size={14} /> Start with a sample project
+                </button>
+              </div>
             ) : (
               <div className="divide-y divide-line">
                 {projects.map((project) => (
@@ -333,6 +367,34 @@ export function UserHomePage() {
           <p className="text-sm text-text-muted">No action items assigned to you. You're all caught up.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function GettingStartedCard({ project, orgId, counts, onOpen }: { project: Project; orgId: string; counts: { requirements: number; testCases: number; defects: number }; onOpen: (orgId: string, projectId: string) => void }) {
+  const steps = [
+    { label: 'Add your first requirement', done: counts.requirements > 0, path: 'requirements' },
+    { label: 'Create a linked test case', done: counts.testCases > 0, path: 'testcases' },
+    { label: 'Record a sample defect', done: counts.defects > 0, path: 'defects' },
+  ];
+  const completed = steps.filter((step) => step.done).length;
+  return (
+    <div className="card p-5 border-thread/30 bg-thread-bg/20">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1"><Rocket size={17} className="text-thread" /><h2 className="text-sm font-semibold">Get to your first release workflow</h2></div>
+          <p className="text-xs text-text-muted">Connect requirements, tests, and defects in {project.name}.</p>
+        </div>
+        <span className="badge bg-white text-thread shrink-0">{completed}/{steps.length} complete</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {steps.map((step) => (
+          <button key={step.label} className="flex items-center gap-2 rounded-lg border border-line bg-white/70 px-3 py-2 text-left hover:border-thread transition-colors" onClick={() => onOpen(orgId, project.id)}>
+            <CheckCircle2 size={15} className={step.done ? 'text-green-600' : 'text-text-faint'} />
+            <span className={`text-xs ${step.done ? 'text-text-muted line-through' : 'font-medium text-text'}`}>{step.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

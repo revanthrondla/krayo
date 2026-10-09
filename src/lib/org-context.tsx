@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from './supabase';
 import type { Org, Project } from './types';
+import { recordActivationEvent } from './activation';
 
 const STORAGE_ORG = 'krayo.activeOrg';
 const STORAGE_PROJECT = 'krayo.activeProject';
@@ -57,7 +58,11 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   const createOrg = async (name: string): Promise<Org> => {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase.from('organizations').insert({ name, owner_id: user?.id }).select().single();
-    if (error) throw error; await refreshOrgs(); return data as Org;
+    if (error) throw error;
+    const createdOrg = data as Org;
+    await recordActivationEvent('organization_created', { orgId: createdOrg.id });
+    await refreshOrgs();
+    return createdOrg;
   };
   const createProject = async (name: string, description: string | null): Promise<Project> => {
     if (!activeOrg) throw new Error('No active organization');
@@ -66,7 +71,11 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       if ((count ?? 0) >= 1) throw new Error('The Free plan is limited to 1 project. Upgrade to Team for unlimited projects.');
     }
     const { data, error } = await supabase.from('projects').insert({ name, description, org_id: activeOrg.id }).select().single();
-    if (error) throw error; await refreshProjects(activeOrg.id); return data as Project;
+    if (error) throw error;
+    const createdProject = data as Project;
+    await recordActivationEvent('project_created', { orgId: activeOrg.id, projectId: createdProject.id });
+    await refreshProjects(activeOrg.id);
+    return createdProject;
   };
 
   return <OrgContext.Provider value={{ orgs, activeOrg, projects, activeProject, loading, setActiveOrgId, setActiveProjectId, createOrg, createProject, refreshOrgs, refreshProjects }}>{children}</OrgContext.Provider>;
