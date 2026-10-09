@@ -68,11 +68,21 @@ export function TestRecorderPage() {
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
+      const frameWindow = iframeRef.current?.contentWindow;
+      if (!frameWindow || event.source !== frameWindow) return;
       if (event.data?.source !== 'krayo-recorder') return;
       if (event.data.type === 'step' && recordingRef.current) {
         setSteps((prev) => [...prev, { ...event.data.step, id: crypto.randomUUID() }]);
       } else if (event.data.type === 'navigate') {
-        loadPageRef.current(event.data.url as string);
+        const nextUrl = typeof event.data.url === 'string' ? event.data.url : '';
+        let safe = false;
+        try {
+          const protocol = new URL(nextUrl).protocol;
+          safe = protocol === 'http:' || protocol === 'https:';
+        } catch {
+          safe = false;
+        }
+        if (safe) loadPageRef.current(nextUrl);
       } else if (event.data.type === 'loaded') {
         if (recordingRef.current && iframeRef.current?.contentWindow) {
           iframeRef.current.contentWindow.postMessage({ source: 'krayo-control', type: 'start' }, '*');

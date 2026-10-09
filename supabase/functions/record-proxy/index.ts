@@ -13,14 +13,106 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-function validateUrl(raw: string): URL | null {
+const BLOCKED_HOSTNAMES = new Set([
+  "localhost",
+  "localhost.localdomain",
+  "metadata",
+  "metadata.google.internal",
+  "instance-data",
+  "kubernetes.default",
+  "kubernetes.default.svc",
+]);
+
+function isPrivateIpv4(host: string): boolean {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  if ([a, b, Number(m[3]), Number(m[4])].some((n) => n > 255)) return true;
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 192 && b === 0) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a >= 224) return true;
+  return false;
+}
+
+function isPrivateIpv6(host: string): boolean {
+  const h = host.replace(/^\[|\]$/g, "").toLowerCase();
+  if (!h.includes(":")) return false;
+  if (h === "::" || h === "::1") return true;
+  if (h.startsWith("fe80") || h.startsWith("fc") || h.startsWith("fd")) return true;
+  if (h.startsWith("::ffff:")) return isPrivateIpv4(h.slice(7));
+  return false;
+}
+
+function isBlockedHostname(rawHost: string): boolean {
+  const host = rawHost.toLowerCase().replace(/\.$/, "");
+  if (!host) return true;
+  if (BLOCKED_HOSTNAMES.has(host)) return true;
+  if (host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return true;
+  if (isPrivateIpv4(host) || isPrivateIpv6(rawHost)) return true;
+  return false;
+}
+
+async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
+  const host = hostname.replace(/^\[|\]$/g, "");
+  if (isPrivateIpv4(host) || isPrivateIpv6(hostname)) return false;
+  if (/^[\d.]+$/.test(host) || host.includes(":")) return true;
+  let addresses: string[] = [];
   try {
-    const parsed = new URL(raw);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed;
-    return null;
+    const [v4, v6] = await Promise.all([
+      Deno.resolveDns(host, "A").catch(() => [] as string[]),
+      Deno.resolveDns(host, "AAAA").catch(() => [] as string[]),
+    ]);
+    addresses = [...v4, ...v6];
+  } catch {
+    return false;
+  }
+  if (addresses.length === 0) return false;
+  return addresses.every((addr) => !isPrivateIpv4(addr) && !isPrivateIpv6(addr));
+}
+
+async function validateUrl(raw: string): Promise<URL | null> {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
   } catch {
     return null;
   }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  if (parsed.username || parsed.password) return null;
+  if (isBlockedHostname(parsed.hostname)) return null;
+  if (!(await resolvesToPublicAddress(parsed.hostname))) return null;
+  return parsed;
+}
+
+const MAX_REDIRECTS = 5;
+
+async function fetchFollowingSafeRedirects(start: URL, signal: AbortSignal): Promise<{ res: Response; finalUrl: string }> {
+  let current = start;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const res = await fetch(current.toString(), {
+      headers: {
+        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 (compatible; KrayoRecorder/1.0)",
+      },
+      redirect: "manual",
+      signal,
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      await res.body?.cancel();
+      if (!location) throw new Error("blocked-destination");
+      const next = await validateUrl(new URL(location, current).toString());
+      if (!next) throw new Error("blocked-destination");
+      current = next;
+      continue;
+    }
+    return { res, finalUrl: res.url || current.toString() };
+  }
+  throw new Error("blocked-destination");
 }
 
 const RECORDER_SCRIPT = `<script>
@@ -165,21 +257,17 @@ Deno.serve(async (req: Request) => {
 
     const payload = await req.json() as { url?: string };
     if (!payload.url) return jsonResponse({ error: "URL is required" }, 400);
-    const parsed = validateUrl(payload.url);
-    if (!parsed) return jsonResponse({ error: "Invalid URL" }, 400);
+    const parsed = await validateUrl(payload.url);
+    if (!parsed) return jsonResponse({ error: "That address cannot be recorded. Enter a public http or https web page." }, 400);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     let res: Response;
+    let finalUrl: string;
     try {
-      res = await fetch(parsed.toString(), {
-        headers: {
-          "Accept": "text/html,application/xhtml+xml",
-          "User-Agent": "Mozilla/5.0 (compatible; KrayoRecorder/1.0)",
-        },
-        redirect: "follow",
-        signal: controller.signal,
-      });
+      const result = await fetchFollowingSafeRedirects(parsed, controller.signal);
+      res = result.res;
+      finalUrl = result.finalUrl;
     } finally {
       clearTimeout(timeout);
     }
@@ -192,14 +280,14 @@ Deno.serve(async (req: Request) => {
     const html = await res.text();
     if (html.length > MAX_HTML_BYTES) return jsonResponse({ error: "Page is too large to record" }, 413);
 
-    const finalUrl = res.url || parsed.toString();
     const modified = injectRecorder(html, finalUrl);
     return jsonResponse({ html: modified, url: finalUrl });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("fetch") || msg.includes("abort") || msg.includes("connect") || msg.includes("dns") || msg.includes("resolution")) {
-      return jsonResponse({ error: "Could not reach the requested page from the server. The site may be unreachable or block automated access." }, 502);
+    console.error("record-proxy error:", msg);
+    if (msg.includes("blocked-destination")) {
+      return jsonResponse({ error: "That address cannot be recorded. Enter a public http or https web page." }, 400);
     }
-    return jsonResponse({ error: msg || "Could not load the requested page" }, 500);
+    return jsonResponse({ error: "Could not reach the requested page from the server. The site may be unreachable or block automated access." }, 502);
   }
 });

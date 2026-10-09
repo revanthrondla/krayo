@@ -1,2 +1,8 @@
 [functions.send-verification-email]
 verify_jwt = false
+
+[functions.record-proxy]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false

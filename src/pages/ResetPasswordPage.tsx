@@ -31,12 +31,14 @@ export function ResetPasswordPage() {
         if (!emailConfirmedAt) {
           setMode('verify');
           try {
-            const { error: profileError } = await supabase
-              .from('user_profiles')
-              .update({ email_verified: true })
-              .eq('id', data.session.user.id);
+            const { data: confirmed, error: profileError } = await supabase.rpc('confirm_own_email');
             if (profileError) throw profileError;
             if (cancelled) return;
+            if (!confirmed) {
+              setStatus('email-error');
+              setError('This link is invalid or has expired. Please request a new one.');
+              return;
+            }
             setStatus('email-verified');
           } catch (err) {
             if (cancelled) return;

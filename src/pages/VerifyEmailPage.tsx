@@ -25,11 +25,13 @@ export function VerifyEmailPage() {
             setMessage('Could not verify your email. The link may have expired.');
             return;
           }
-          const { error: profileError } = await supabase
-            .from('user_profiles')
-            .update({ email_verified: true })
-            .eq('id', session.user.id);
+          const { data: confirmed, error: profileError } = await supabase.rpc('confirm_own_email');
           if (profileError) throw profileError;
+          if (!confirmed) {
+            setStatus('error');
+            setMessage('Could not verify your email. The link may have expired.');
+            return;
+          }
           setStatus('success');
         } catch (err) {
           setStatus('error');

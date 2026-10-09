@@ -35,14 +35,14 @@ Deno.serve(async (req) => {
       event = await stripe.webhooks.constructEventAsync(body, signature, stripeWebhookSecret);
     } catch (error: any) {
       console.error(`Webhook signature verification failed: ${error.message}`);
-      return new Response(`Webhook signature verification failed: ${error.message}`, { status: 400, headers: corsHeaders });
+      return new Response('Invalid signature', { status: 400, headers: corsHeaders });
     }
 
     EdgeRuntime.waitUntil(handleEvent(event));
     return Response.json({ received: true });
   } catch (error: any) {
     console.error('Error processing webhook:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 });
 
