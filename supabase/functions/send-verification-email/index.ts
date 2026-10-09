@@ -1,4 +1,4 @@
-// send-verification-email: sends verification email via Supabase built-in email, falls back to Resend (custom token)
+// send-verification-email: sends a verification email via Resend using a custom token
 // APP_URL must be set to the production origin (no trailing slash), e.g. https://krayo.net
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
@@ -43,47 +43,38 @@ Deno.serve(async (req: Request) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
-
     const appUrl = Deno.env.get("APP_URL") ?? "http://localhost:5173";
 
-    // Supabase sends the verification email through the authenticated client.
-    const { error: sendError } = await userClient.auth.signInWithOtp({
-      email: user.email,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: `${appUrl}/verify-email?action=confirm`,
-      },
-    });
-    let emailSent = !sendError;
-
-    if (sendError) {
-      console.error("Supabase verification email error:", sendError.message);
+    // If already confirmed, nothing to do
+    if (user.email_confirmed_at) {
+      return new Response(JSON.stringify({ sent: true, alreadyVerified: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Fallback: Resend with custom token link (only if Supabase email fails)
-    if (!emailSent) {
-      const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    // Generate a custom verification token
+    const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, "");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-      const { error: tokenError } = await admin.from("email_verification_tokens").insert({
-        user_id: user.id,
-        token,
-        expires_at: expiresAt,
-        used: false,
-      });
-      if (tokenError) throw tokenError;
+    const { error: tokenError } = await admin.from("email_verification_tokens").insert({
+      user_id: user.id,
+      token,
+      expires_at: expiresAt,
+      used: false,
+    });
+    if (tokenError) throw tokenError;
 
-      const verifyLink = `${appUrl}/verify-email?token=${token}`;
+    const verifyLink = `${appUrl}/verify-email?token=${token}`;
 
-      const { data: profile } = await admin
-        .from("user_profiles")
-        .select("display_name")
-        .eq("id", user.id)
-        .maybeSingle();
+    const { data: profile } = await admin
+      .from("user_profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle();
 
-      const displayName = (profile as { display_name: string | null } | null)?.display_name ?? user.email.split("@")[0];
+    const displayName = (profile as { display_name: string | null } | null)?.display_name ?? user.email.split("@")[0];
 
-      const emailHtml = `<!DOCTYPE html>
+    const emailHtml = `<!DOCTYPE html>
 <html>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1a1a2e;">
   <div style="margin-bottom: 24px;">
@@ -110,32 +101,33 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`;
 
-      const resendApiKey = Deno.env.get("RESEND_API_KEY");
-      if (resendApiKey) {
-        try {
-          const emailResponse = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${resendApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              from: "Krayo <onboarding@resend.dev>",
-              to: [user.email],
-              subject: "Verify your email - Krayo",
-              html: emailHtml,
-            }),
-          });
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    let emailSent = false;
 
-          if (emailResponse.ok) {
-            emailSent = true;
-          } else {
-            const errText = await emailResponse.text();
-            console.error("Resend error:", errText);
-          }
-        } catch (err) {
-          console.error("Resend fetch failed:", err);
+    if (resendApiKey) {
+      try {
+        const emailResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "Krayo <onboarding@resend.dev>",
+            to: [user.email],
+            subject: "Verify your email - Krayo",
+            html: emailHtml,
+          }),
+        });
+
+        if (emailResponse.ok) {
+          emailSent = true;
+        } else {
+          const errText = await emailResponse.text();
+          console.error("Resend error:", errText);
         }
+      } catch (err) {
+        console.error("Resend fetch failed:", err);
       }
     }
 
