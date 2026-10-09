@@ -1,4 +1,5 @@
 // send-verification-email: sends verification email via Supabase built-in email, falls back to Resend (custom token)
+// APP_URL must be set to the production origin (no trailing slash), e.g. https://krayo.net
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
