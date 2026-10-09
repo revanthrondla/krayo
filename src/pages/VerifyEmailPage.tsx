@@ -105,19 +105,32 @@ export function VerifyEmailPage() {
 
 export function ResendVerificationPrompt() {
   const [sent, setSent] = useState(false);
+  const [alreadyVerified, setAlreadyVerified] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleResend = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.functions.invoke('send-verification-email', {});
+      const { data, error } = await supabase.functions.invoke('send-verification-email', {});
       if (error) throw error;
-      setSent(true);
+      if (data?.alreadyVerified) {
+        setAlreadyVerified(true);
+      } else {
+        setSent(true);
+      }
     } catch {
       setSent(false);
     }
     setLoading(false);
   };
+
+  if (alreadyVerified) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-green-600">
+        <MailCheck size={14} /> Your email is already verified.
+      </div>
+    );
+  }
 
   if (sent) {
     return (
