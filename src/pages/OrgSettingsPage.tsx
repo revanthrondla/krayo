@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Users, Plus, Trash2, AlertCircle, ChevronDown, X, FolderOpen, ArrowRight } from 'lucide-react';
+import { Users, Plus, Trash2, AlertCircle, ChevronDown, X, FolderOpen, ArrowRight, TrendingDown, Building2, Rocket, ClipboardList, FlaskConical, Bug, UserPlus, Sparkles, ArrowUpCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useOrg } from '../lib/org-context';
 import { Loading, EmptyState } from '../components/States';
@@ -223,6 +223,8 @@ export function OrgSettingsPage() {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
+  const [funnel, setFunnel] = useState<{ event_name: string; event_count: number; first_seen: string }[]>([]);
+
   const fetchMembers = useCallback(async () => {
     if (!orgId) { setMembersLoading(false); return; }
     setMembersLoading(true);
@@ -242,6 +244,14 @@ export function OrgSettingsPage() {
   }, [orgId]);
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    supabase.rpc('get_org_activation_funnel', { _org_id: orgId }).then(({ data, error }) => {
+      if (error) { console.error('Failed to load activation funnel:', error); return; }
+      setFunnel((data ?? []) as { event_name: string; event_count: number; first_seen: string }[]);
+    });
+  }, [orgId]);
 
   if (!activeOrg) return <Loading label="Loading organization…" />;
 
@@ -342,6 +352,9 @@ export function OrgSettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Activation funnel */}
+      <OrgActivationFunnel funnel={funnel} />
 
       {/* Members */}
       <div className="card p-5">
@@ -483,6 +496,59 @@ export function OrgSettingsPage() {
           </button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+const FUNNEL_STEPS = [
+  { event: 'organization_created', label: 'Organization created', icon: Building2 },
+  { event: 'project_created', label: 'Project created', icon: Rocket },
+  { event: 'first_requirement_created', label: 'First requirement', icon: ClipboardList },
+  { event: 'first_test_case_created', label: 'First test case', icon: FlaskConical },
+  { event: 'first_defect_created', label: 'First defect', icon: Bug },
+  { event: 'teammate_invited', label: 'Teammate invited', icon: UserPlus },
+  { event: 'ai_generation_used', label: 'AI generation used', icon: Sparkles },
+  { event: 'upgrade_completed', label: 'Upgrade completed', icon: ArrowUpCircle },
+] as const;
+
+function OrgActivationFunnel({ funnel }: { funnel: { event_name: string; event_count: number; first_seen: string }[] }) {
+  const countFor = (event: string) => funnel.find((f) => f.event_name === event)?.event_count ?? 0;
+  const firstSeenFor = (event: string) => funnel.find((f) => f.event_name === event)?.first_seen;
+  const maxCount = Math.max(1, ...FUNNEL_STEPS.map((s) => countFor(s.event)));
+  const stepsWithData = FUNNEL_STEPS.filter((s) => countFor(s.event) > 0).length;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2"><TrendingDown size={16} className="text-thread" /><h2 className="text-sm font-semibold">Activation Funnel</h2></div>
+        <span className="text-xs text-text-muted">{stepsWithData} of {FUNNEL_STEPS.length} milestones reached</span>
+      </div>
+
+      {funnel.length === 0 ? (
+        <p className="text-sm text-text-muted py-6 text-center">Onboarding milestones will appear here as your team starts using the platform.</p>
+      ) : (
+        <div className="space-y-2">
+          {FUNNEL_STEPS.map((step) => {
+            const count = countFor(step.event);
+            const firstSeen = firstSeenFor(step.event);
+            const pct = Math.round((count / maxCount) * 100);
+            const isZero = count === 0;
+            return (
+              <div key={step.event} className="flex items-center gap-3">
+                <div className="flex items-center gap-2 w-44 shrink-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isZero ? 'bg-paper' : 'bg-thread-bg'}`}><step.icon size={13} className={isZero ? 'text-text-faint' : 'text-thread'} /></div>
+                  <span className={`text-xs ${isZero ? 'text-text-faint' : 'text-text'}`}>{step.label}</span>
+                </div>
+                <div className="flex-1 h-7 rounded-lg bg-paper overflow-hidden relative">
+                  <div className={`h-full rounded-lg transition-all duration-500 ${isZero ? 'bg-line' : 'bg-thread'}`} style={{ width: `${isZero ? 4 : Math.max(pct, 8)}%` }} />
+                  <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium ${isZero ? 'text-text-faint' : 'text-text'}`}>{count}</span>
+                </div>
+                {firstSeen && <span className="text-xs text-text-faint shrink-0 w-28 text-right">{new Date(firstSeen).toLocaleDateString()}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

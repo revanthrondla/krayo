@@ -4,6 +4,7 @@ import { supabase } from './supabase';
 
 interface AuthContextValue {
   user: User | null; session: Session | null; loading: boolean;
+  isPlatformAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -15,6 +16,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const isPlatformAdmin = !!(user?.app_metadata?.is_platform_admin as boolean | undefined);
 
   useEffect(() => {
     let mounted = true;
@@ -41,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   const signOut = async () => { await supabase.auth.signOut(); };
 
-  return <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, session, loading, isPlatformAdmin, signIn, signUp, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

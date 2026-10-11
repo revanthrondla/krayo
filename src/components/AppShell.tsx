@@ -18,7 +18,7 @@ import {
 } from '../lib/notifications';
 
 export function AppShell() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isPlatformAdmin } = useAuth();
   const { orgs, activeOrg, projects, activeProject, setActiveOrgId, setActiveProjectId, createOrg, createProject } = useOrg();
   const navigate = useNavigate();
   const { orgId, projectId } = useParams();
@@ -106,7 +106,7 @@ export function AppShell() {
           {activeOrg && <SidebarLink to="/app/billing" iconKey="billing" label="Billing & Plans" />}
           {activeOrg && <SidebarLink to={`/app/orgs/${activeOrg.id}/resources`} iconKey="resources" label="Enterprise Resources" />}
           {activeProject && orgId && projectId && <SidebarLink to={`/app/orgs/${orgId}/projects/${projectId}/security`} iconKey="security" label="Project Security" />}
-          <SidebarLink to="/app/admin" iconKey="admin" label="Platform Admin" />
+          {isPlatformAdmin && <SidebarLink to="/app/admin" iconKey="admin" label="Platform Admin" />}
         </nav>
         <div className="px-3 py-3 border-t border-white/10 relative">
           <button className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors" onClick={() => setUserMenuOpen(!userMenuOpen)}>
