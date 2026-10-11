@@ -50,6 +50,8 @@ export function UserHomePage() {
   const [myActionItems, setMyActionItems] = useState<ActionItem[]>([]);
   const [allOrgProjects, setAllOrgProjects] = useState<{ org: Org; projects: Project[] }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
+  const [activationEvents, setActivationEvents] = useState<{ id: string; event_name: string; created_at: string }[]>([]);
 
   // Preferences
   const [showPrefs, setShowPrefs] = useState(false);
@@ -67,6 +69,7 @@ export function UserHomePage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setOnboardingLoading(true);
     try {
       const p = await getProfile();
       setProfile(p);
@@ -92,6 +95,14 @@ export function UserHomePage() {
       }
 
       if (user) {
+        const { data: eventData, error: eventError } = await supabase
+          .from('activation_events')
+          .select('id, event_name, created_at')
+          .order('created_at', { ascending: false })
+          .limit(20);
+        if (eventError) throw eventError;
+        setActivationEvents((eventData ?? []) as { id: string; event_name: string; created_at: string }[]);
+
         const allProjectIds = orgProjectPairs.flatMap((p) => p.projects.map((proj) => proj.id));
         if (allProjectIds.length > 0) {
           const { data: items } = await supabase
@@ -104,6 +115,7 @@ export function UserHomePage() {
         }
       }
     } catch (err) { console.error('Failed to load home data:', err); }
+    setOnboardingLoading(false);
     setLoading(false);
   }, [user, orgs]);
 
@@ -128,10 +140,10 @@ export function UserHomePage() {
     setSavingPrefs(false);
   };
 
-  const openProject = (orgId: string, projectId: string) => {
+  const openProject = (orgId: string, projectId: string, module = 'overview') => {
     setActiveOrgId(orgId);
     setActiveProjectId(projectId);
-    navigate(`/app/orgs/${orgId}/projects/${projectId}/overview`);
+    navigate(`/app/orgs/${orgId}/projects/${projectId}/${module}`);
   };
 
   const openNewProjectForm = (orgId: string | null) => {
@@ -148,10 +160,15 @@ export function UserHomePage() {
     setCreateError(null);
     try {
       setActiveOrgId(targetOrgId);
-      const project = await createProject(newProjectName.trim(), newProjectDesc.trim() || null);
+      const project = await createProject(newProjectName.trim(), newProjectDesc.trim() || null, targetOrgId);
       if (withStarterData) {
         await createStarterProjectData(project.id);
-        await recordActivationEvent('starter_project_created', { orgId: targetOrgId, projectId: project.id });
+        await Promise.all([
+          recordActivationEvent('starter_project_created', { orgId: targetOrgId, projectId: project.id }),
+          recordActivationEvent('first_requirement_created', { orgId: targetOrgId, projectId: project.id }),
+          recordActivationEvent('first_test_case_created', { orgId: targetOrgId, projectId: project.id }),
+          recordActivationEvent('first_defect_created', { orgId: targetOrgId, projectId: project.id }),
+        ]);
       }
       setNewProjectOrgId(null);
       setNewProjectName('');
@@ -235,9 +252,11 @@ export function UserHomePage() {
       )}
 
       {/* Getting started */}
-      {firstProject && firstProjectPair && (
+      {firstProject && firstProjectPair && !onboardingLoading && (
         <GettingStartedCard project={firstProject} orgId={firstProjectPair.org.id} counts={onboardingCounts} onOpen={openProject} />
       )}
+
+      <ActivationHistory events={activationEvents} />
 
       {/* My Action Items */}
       {myActionItems.length > 0 && (
@@ -371,7 +390,7 @@ export function UserHomePage() {
   );
 }
 
-function GettingStartedCard({ project, orgId, counts, onOpen }: { project: Project; orgId: string; counts: { requirements: number; testCases: number; defects: number }; onOpen: (orgId: string, projectId: string) => void }) {
+function GettingStartedCard({ project, orgId, counts, onOpen }: { project: Project; orgId: string; counts: { requirements: number; testCases: number; defects: number }; onOpen: (orgId: string, projectId: string, module?: string) => void }) {
   const steps = [
     { label: 'Add your first requirement', done: counts.requirements > 0, path: 'requirements' },
     { label: 'Create a linked test case', done: counts.testCases > 0, path: 'testcases' },
@@ -389,12 +408,45 @@ function GettingStartedCard({ project, orgId, counts, onOpen }: { project: Proje
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         {steps.map((step) => (
-          <button key={step.label} className="flex items-center gap-2 rounded-lg border border-line bg-white/70 px-3 py-2 text-left hover:border-thread transition-colors" onClick={() => onOpen(orgId, project.id)}>
+          <button key={step.label} className="flex items-center gap-2 rounded-lg border border-line bg-white/70 px-3 py-2 text-left hover:border-thread transition-colors" onClick={() => onOpen(orgId, project.id, step.path)}>
             <CheckCircle2 size={15} className={step.done ? 'text-green-600' : 'text-text-faint'} />
             <span className={`text-xs ${step.done ? 'text-text-muted line-through' : 'font-medium text-text'}`}>{step.label}</span>
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ActivationHistory({ events }: { events: { id: string; event_name: string; created_at: string }[] }) {
+  const labels: Record<string, string> = {
+    organization_created: 'Organization created',
+    project_created: 'Project created',
+    starter_project_created: 'Starter project created',
+    first_requirement_created: 'First requirement added',
+    first_test_case_created: 'First test case added',
+    first_defect_created: 'First defect recorded',
+    teammate_invited: 'Teammate invited',
+    ai_generation_used: 'AI generation used',
+    upgrade_started: 'Upgrade started',
+    upgrade_completed: 'Upgrade completed',
+  };
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2"><Clock size={16} className="text-thread" /><h2 className="text-sm font-semibold">Activation history</h2></div>
+        <span className="badge bg-paper text-text-muted">Read-only</span>
+      </div>
+      {events.length === 0 ? <p className="text-xs text-text-muted">Your product milestones will appear here as you work.</p> : (
+        <div className="divide-y divide-line">
+          {events.map((event) => (
+            <div key={event.id} className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+              <span className="text-sm text-text">{labels[event.event_name] ?? event.event_name}</span>
+              <span className="text-xs text-text-faint shrink-0">{new Date(event.created_at).toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

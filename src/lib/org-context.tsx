@@ -10,7 +10,7 @@ interface OrgContextValue {
   orgs: Org[]; activeOrg: Org | null; projects: Project[]; activeProject: Project | null; loading: boolean;
   setActiveOrgId: (id: string) => void; setActiveProjectId: (id: string) => void;
   createOrg: (name: string) => Promise<Org>;
-  createProject: (name: string, description: string | null) => Promise<Project>;
+  createProject: (name: string, description: string | null, orgId?: string) => Promise<Project>;
   refreshOrgs: () => Promise<void>; refreshProjects: (orgId: string) => Promise<void>;
 }
 
@@ -64,17 +64,18 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     await refreshOrgs();
     return createdOrg;
   };
-  const createProject = async (name: string, description: string | null): Promise<Project> => {
-    if (!activeOrg) throw new Error('No active organization');
-    if (activeOrg.plan === 'free') {
-      const { count } = await supabase.from('projects').select('*', { count: 'exact', head: true }).eq('org_id', activeOrg.id);
+  const createProject = async (name: string, description: string | null, orgId?: string): Promise<Project> => {
+    const targetOrg = orgId ? orgs.find((org) => org.id === orgId) : activeOrg;
+    if (!targetOrg) throw new Error('No active organization');
+    if (targetOrg.plan === 'free') {
+      const { count } = await supabase.from('projects').select('*', { count: 'exact', head: true }).eq('org_id', targetOrg.id);
       if ((count ?? 0) >= 1) throw new Error('The Free plan is limited to 1 project. Upgrade to Team for unlimited projects.');
     }
-    const { data, error } = await supabase.from('projects').insert({ name, description, org_id: activeOrg.id }).select().single();
+    const { data, error } = await supabase.from('projects').insert({ name, description, org_id: targetOrg.id }).select().single();
     if (error) throw error;
     const createdProject = data as Project;
-    await recordActivationEvent('project_created', { orgId: activeOrg.id, projectId: createdProject.id });
-    await refreshProjects(activeOrg.id);
+    await recordActivationEvent('project_created', { orgId: targetOrg.id, projectId: createdProject.id });
+    await refreshProjects(targetOrg.id);
     return createdProject;
   };
 

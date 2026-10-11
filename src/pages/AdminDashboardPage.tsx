@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Shield, Building2, Users, DollarSign, Plus, Pencil, Trash2,
   CheckCircle2, AlertCircle, Search, Settings, Lock, Eye, Mail, Clock,
+  TrendingDown, Rocket, ClipboardList, FlaskConical, Bug, UserPlus, Sparkles, ArrowUpCircle,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Modal } from '../components/Modal';
@@ -25,6 +26,7 @@ export function AdminDashboardPage() {
   const [form, setForm] = useState({ name: '', license_seats: 10, cost_per_seat: 25, billing_cycle: 'monthly', notes: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [funnel, setFunnel] = useState<{ event_name: string; event_count: number; first_seen: string }[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -52,6 +54,10 @@ export function AdminDashboardPage() {
         }
       }
       setMemberCounts(counts);
+
+      const { data: funnelData, error: funnelError } = await supabase.rpc('get_activation_funnel');
+      if (funnelError) throw funnelError;
+      setFunnel((funnelData ?? []) as { event_name: string; event_count: number; first_seen: string }[]);
     } catch (err) {
       console.error('Failed to load admin data:', err);
     }
@@ -195,6 +201,8 @@ export function AdminDashboardPage() {
         <StatCard icon={Clock} label="New" value={String(leads.filter((l) => l.status === 'new').length)} color="text-thread" />
         <StatCard icon={CheckCircle2} label="Contacted" value={String(leads.filter((l) => l.status === 'contacted').length)} color="text-green-600" />
       </div>
+
+      <ActivationFunnelCard funnel={funnel} />
 
       <div className="card p-4">
         <div className="relative mb-4">
@@ -439,6 +447,59 @@ function ToggleRow({ label, description, value, onChange, icon: Icon }: { label:
       >
         <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${value ? 'translate-x-4' : ''}`} />
       </button>
+    </div>
+  );
+}
+
+const FUNNEL_STEPS = [
+  { event: 'organization_created', label: 'Organization created', icon: Building2 },
+  { event: 'project_created', label: 'Project created', icon: Rocket },
+  { event: 'first_requirement_created', label: 'First requirement', icon: ClipboardList },
+  { event: 'first_test_case_created', label: 'First test case', icon: FlaskConical },
+  { event: 'first_defect_created', label: 'First defect', icon: Bug },
+  { event: 'teammate_invited', label: 'Teammate invited', icon: UserPlus },
+  { event: 'ai_generation_used', label: 'AI generation used', icon: Sparkles },
+  { event: 'upgrade_completed', label: 'Upgrade completed', icon: ArrowUpCircle },
+] as const;
+
+function ActivationFunnelCard({ funnel }: { funnel: { event_name: string; event_count: number; first_seen: string }[] }) {
+  const countFor = (event: string) => funnel.find((f) => f.event_name === event)?.event_count ?? 0;
+  const firstSeenFor = (event: string) => funnel.find((f) => f.event_name === event)?.first_seen;
+  const maxCount = Math.max(1, ...FUNNEL_STEPS.map((s) => countFor(s.event)));
+  const stepsWithData = FUNNEL_STEPS.filter((s) => countFor(s.event) > 0).length;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2"><TrendingDown size={16} className="text-thread" /><h2 className="text-sm font-semibold">Activation Funnel</h2></div>
+        <span className="text-xs text-text-muted">{stepsWithData} of {FUNNEL_STEPS.length} milestones reached</span>
+      </div>
+
+      {funnel.length === 0 ? (
+        <EmptyState icon={TrendingDown} title="No activation events yet" message="User onboarding milestones will appear here as users sign up and start using the platform." />
+      ) : (
+        <div className="space-y-2">
+          {FUNNEL_STEPS.map((step) => {
+            const count = countFor(step.event);
+            const firstSeen = firstSeenFor(step.event);
+            const pct = Math.round((count / maxCount) * 100);
+            const isZero = count === 0;
+            return (
+              <div key={step.event} className="flex items-center gap-3">
+                <div className="flex items-center gap-2 w-44 shrink-0">
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isZero ? 'bg-paper' : 'bg-thread-bg'}`}><step.icon size={13} className={isZero ? 'text-text-faint' : 'text-thread'} /></div>
+                  <span className={`text-xs ${isZero ? 'text-text-faint' : 'text-text'}`}>{step.label}</span>
+                </div>
+                <div className="flex-1 h-7 rounded-lg bg-paper overflow-hidden relative">
+                  <div className={`h-full rounded-lg transition-all duration-500 ${isZero ? 'bg-line' : 'bg-thread'}`} style={{ width: `${isZero ? 4 : Math.max(pct, 8)}%` }} />
+                  <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium ${isZero ? 'text-text-faint' : 'text-text'}`}>{count}</span>
+                </div>
+                {firstSeen && <span className="text-xs text-text-faint shrink-0 w-28 text-right">{new Date(firstSeen).toLocaleDateString()}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

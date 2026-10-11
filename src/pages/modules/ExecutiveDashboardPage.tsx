@@ -3,12 +3,13 @@ import { useParams } from 'react-router-dom';
 import {
   BarChart3, Calendar, AlertTriangle, CheckCircle2, Clock, TrendingUp,
   Plus, Pencil, Trash2, ClipboardList, FlaskConical, Bug,
+  Activity, ShieldCheck, ThumbsUp, ThumbsDown, MinusCircle,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useOrg } from '../../lib/org-context';
 import { Modal } from '../../components/Modal';
 import { Loading, EmptyState } from '../../components/States';
-import type { Milestone, Requirement, TestCase, Defect, ActionItem, RaidEntry } from '../../lib/types';
+import type { Milestone, Requirement, TestCase, Defect, ActionItem, RaidEntry, TestRun } from '../../lib/types';
 
 const PHASES = ['Initiation', 'Planning', 'Execution', 'Monitoring', 'Closure'];
 const MILESTONE_STATUSES = ['Not Started', 'In Progress', 'Completed', 'Delayed', 'At Risk'];
@@ -20,6 +21,7 @@ interface DashboardData {
   defects: Defect[];
   actionItems: ActionItem[];
   raidEntries: RaidEntry[];
+  testRuns: TestRun[];
 }
 
 export function ExecutiveDashboardPage() {
@@ -39,13 +41,14 @@ export function ExecutiveDashboardPage() {
     if (!projectId) { setData(null); setLoading(false); return; }
     setLoading(true);
     try {
-      const [ms, reqs, tcs, defs, ais, raid] = await Promise.all([
+      const [ms, reqs, tcs, defs, ais, raid, runs] = await Promise.all([
         supabase.from('project_milestones').select('*').eq('project_id', projectId).order('sort_order'),
         supabase.from('requirements').select('*').eq('project_id', projectId),
         supabase.from('test_cases').select('*').eq('project_id', projectId),
         supabase.from('defects').select('*').eq('project_id', projectId),
         supabase.from('action_items').select('*').eq('project_id', projectId),
         supabase.from('raid_entries').select('*').eq('project_id', projectId),
+        supabase.from('test_runs').select('*').eq('project_id', projectId).order('created_at', { ascending: false }).limit(10),
       ]);
       setData({
         milestones: (ms.data ?? []) as Milestone[],
@@ -54,6 +57,7 @@ export function ExecutiveDashboardPage() {
         defects: (defs.data ?? []) as Defect[],
         actionItems: (ais.data ?? []) as ActionItem[],
         raidEntries: (raid.data ?? []) as RaidEntry[],
+        testRuns: (runs.data ?? []) as TestRun[],
       });
     } catch (err) { console.error('Failed to load dashboard data:', err); }
     setLoading(false);
@@ -130,6 +134,23 @@ export function ExecutiveDashboardPage() {
   const healthLabel = healthScore >= 80 ? 'Healthy' : healthScore >= 60 ? 'At Risk' : 'Critical';
   const healthColor = healthScore >= 80 ? 'text-green-600 bg-green-50' : healthScore >= 60 ? 'text-orange-600 bg-orange-50' : 'text-red-600 bg-red-50';
 
+  const testRuns = data.testRuns;
+  const totalRunPassed = testRuns.reduce((s, r) => s + r.passed_count, 0);
+  const totalRunFailed = testRuns.reduce((s, r) => s + r.failed_count, 0);
+  const totalRunTests = testRuns.reduce((s, r) => s + r.total_count, 0);
+  const runPassRate = totalRunTests > 0 ? Math.round((totalRunPassed / totalRunTests) * 100) : null;
+  const runTrend = testRuns.slice().reverse().map((r) => ({ label: new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), passRate: r.total_count > 0 ? Math.round((r.passed_count / r.total_count) * 100) : 0, failed: r.failed_count, passed: r.passed_count, total: r.total_count }));
+
+  const readinessChecks = [
+    { label: 'No open critical defects', passed: openCriticalDefs === 0, detail: openCriticalDefs === 0 ? '0 critical' : `${openCriticalDefs} open` },
+    { label: 'Test pass rate above 80%', passed: runPassRate !== null && runPassRate >= 80, detail: runPassRate === null ? 'No runs' : `${runPassRate}%` },
+    { label: 'No past due milestones', passed: pastDueMs.length === 0, detail: pastDueMs.length === 0 ? '0 past due' : `${pastDueMs.length} past due` },
+    { label: 'No open issues in RAID', passed: openIssues === 0, detail: openIssues === 0 ? '0 open' : `${openIssues} open` },
+    { label: 'Health score above 60', passed: healthScore >= 60, detail: `${healthScore}/100` },
+  ];
+  const readinessPassed = readinessChecks.filter((c) => c.passed).length;
+  const readinessVerdict = readinessPassed === readinessChecks.length ? 'go' : readinessPassed >= Math.ceil(readinessChecks.length * 0.6) ? 'caution' : 'nogo';
+
   const phaseProgress = PHASES.map((phase) => {
     const phaseMs = data.milestones.filter((m) => m.phase === phase);
     return { phase, progress: phaseMs.length > 0 ? Math.round(phaseMs.reduce((sum, m) => sum + m.progress, 0) / phaseMs.length) : 0, count: phaseMs.length };
@@ -150,6 +171,8 @@ export function ExecutiveDashboardPage() {
         <KpiCard icon={Bug} label="Open Defects" value={String(openDefs)} sub={openDefSeveritySummary} color={openDefs > 0 ? 'text-orange-600' : 'text-green-600'} />
         <KpiCard icon={AlertTriangle} label="Open Risks" value={String(openRisks + openIssues)} sub={`${openRisks} risks / ${openIssues} issues`} color={openRisks + openIssues > 0 ? 'text-orange-600' : 'text-green-600'} />
       </div>
+
+      <ReleaseReadinessPanel verdict={readinessVerdict} checks={readinessChecks} passed={readinessPassed} total={readinessChecks.length} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="card p-5 lg:col-span-2">
@@ -211,6 +234,30 @@ export function ExecutiveDashboardPage() {
               <p className="text-[10px] text-text-faint">{pp.count} milestone{pp.count !== 1 ? 's' : ''}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TestRunTrendCard runs={runTrend} totalPassed={totalRunPassed} totalFailed={totalRunFailed} totalTests={totalRunTests} passRate={runPassRate} />
+        <div className="card p-5">
+          <h2 className="text-sm font-semibold mb-3 flex items-center gap-2"><Activity size={16} className="text-thread" /> Recent Test Runs</h2>
+          {testRuns.length === 0 ? <p className="text-sm text-text-muted py-6 text-center">No test runs recorded yet. Connect CI or run tests manually to see results here.</p> : (
+            <div className="space-y-2">
+              {testRuns.slice(0, 5).map((run) => (
+                <div key={run.id} className="flex items-center justify-between gap-3 text-sm py-1.5 border-b border-line/50 last:border-0">
+                  <div className="min-w-0">
+                    <p className="font-medium text-text truncate">{run.tool_name}</p>
+                    <p className="text-xs text-text-faint">{new Date(run.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs shrink-0">
+                    <span className="text-green-600">{run.passed_count}P</span>
+                    <span className="text-red-600">{run.failed_count}F</span>
+                    <span className="text-orange-600">{run.skipped_count}S</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -282,6 +329,84 @@ export function ExecutiveDashboardPage() {
         </div>
         <div className="flex justify-end gap-2 mt-4"><button className="btn btn-ghost btn-sm" onClick={() => setModal(false)}>Cancel</button><button className="btn btn-primary btn-sm" onClick={handleSave} disabled={!form.name.trim()}>Save</button></div>
       </Modal>
+    </div>
+  );
+}
+
+function ReleaseReadinessPanel({ verdict, checks, passed, total }: { verdict: 'go' | 'caution' | 'nogo'; checks: { label: string; passed: boolean; detail: string }[]; passed: number; total: number }) {
+  const config = {
+    go: { label: 'Ready for Release', icon: ThumbsUp, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
+    caution: { label: 'Proceed with Caution', icon: MinusCircle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+    nogo: { label: 'Not Ready for Release', icon: ThumbsDown, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
+  };
+  const cfg = config[verdict];
+  return (
+    <div className={`card p-5 border ${cfg.border} ${cfg.bg}`}>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl ${cfg.bg} flex items-center justify-center`}><cfg.icon size={20} className={cfg.color} /></div>
+          <div>
+            <h2 className="text-sm font-semibold">Release Readiness Assessment</h2>
+            <p className={`text-lg font-bold ${cfg.color}`}>{cfg.label}</p>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className={`text-2xl font-bold ${cfg.color}`}>{passed}/{total}</p>
+          <p className="text-xs text-text-muted">checks passed</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+        {checks.map((check) => (
+          <div key={check.label} className="flex items-center gap-2 rounded-lg bg-white/70 border border-line px-3 py-2">
+            {check.passed ? <CheckCircle2 size={15} className="text-green-600 shrink-0" /> : <AlertTriangle size={15} className="text-orange-500 shrink-0" />}
+            <div className="min-w-0 flex-1">
+              <p className={`text-xs ${check.passed ? 'text-text-muted' : 'font-medium text-text'}`}>{check.label}</p>
+              <p className={`text-[10px] ${check.passed ? 'text-text-faint' : 'text-orange-600'}`}>{check.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TestRunTrendCard({ runs, totalPassed, totalFailed, totalTests, passRate }: { runs: { label: string; passRate: number; failed: number; passed: number; total: number }[]; totalPassed: number; totalFailed: number; totalTests: number; passRate: number | null }) {
+  const maxRate = 100;
+  const chartWidth = 100;
+  const points = runs.length > 0 ? runs.map((r, i) => ({ x: runs.length === 1 ? chartWidth / 2 : (i / (runs.length - 1)) * chartWidth, y: maxRate - r.passRate, passRate: r.passRate, label: r.label })).sort((a, b) => a.x - b.x) : [];
+  const pathD = points.length > 0 ? `M ${points.map((p) => `${p.x} ${p.y}`).join(' L ')}` : '';
+  const areaD = points.length > 0 ? `M ${points[0].x} ${maxRate} L ${points.map((p) => `${p.x} ${p.y}`).join(' L ')} L ${points[points.length - 1].x} ${maxRate} Z` : '';
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold flex items-center gap-2"><ShieldCheck size={16} className="text-thread" /> Test Run Trend</h2>
+        {passRate !== null && <span className={`badge ${passRate >= 80 ? 'bg-green-50 text-green-600' : passRate >= 60 ? 'bg-orange-50 text-orange-600' : 'bg-red-50 text-red-600'}`}>{passRate}% pass</span>}
+      </div>
+      {runs.length === 0 ? (
+        <p className="text-sm text-text-muted py-6 text-center">No test runs recorded yet.</p>
+      ) : (
+        <>
+          <div className="relative h-32 mb-3">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+              <line x1="0" y1="20" x2="100" y2="20" stroke="#e5e7eb" strokeWidth="0.3" strokeDasharray="2 2" />
+              <line x1="0" y1="80" x2="100" y2="80" stroke="#e5e7eb" strokeWidth="0.3" strokeDasharray="2 2" />
+              {areaD && <path d={areaD} fill="rgba(0,122,255,0.08)" />}
+              {pathD && <path d={pathD} fill="none" stroke="#007aff" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />}
+              {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="1.2" fill="#007aff" vectorEffect="non-scaling-stroke" />)}
+            </svg>
+          </div>
+          <div className="flex justify-between text-xs text-text-faint">
+            {runs.map((r, i) => (
+              <span key={i}>{r.label}</span>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-line">
+            <div><p className="text-xs text-text-muted">Total tests</p><p className="text-sm font-semibold">{totalTests}</p></div>
+            <div><p className="text-xs text-text-muted">Passed</p><p className="text-sm font-semibold text-green-600">{totalPassed}</p></div>
+            <div><p className="text-xs text-text-muted">Failed</p><p className="text-sm font-semibold text-red-600">{totalFailed}</p></div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
